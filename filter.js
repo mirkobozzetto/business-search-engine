@@ -1,4 +1,3 @@
-// filter.js  ←  node filter.js 62020
 const fs  = require("fs");
 const csv = require("csv-parser");
 
