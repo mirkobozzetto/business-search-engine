@@ -1,0 +1,6 @@
+# Ignore all CSV files everywhere in the project
+*.csv
+**/*.csv
+.env
+**/*.xlsx
+/node_modules
