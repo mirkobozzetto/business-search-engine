@@ -1,7 +1,7 @@
-const fs  = require("fs");
+const fs = require("fs");
 const csv = require("csv-parser");
 
-const DIR  = "bce_mai_2025";
+const DIR = "bce_mai_2025";
 const CODE = process.argv[2];
 
 if (!CODE || !/^\d{5}$/.test(CODE)) {
@@ -9,9 +9,9 @@ if (!CODE || !/^\d{5}$/.test(CODE)) {
   process.exit(1);
 }
 
-const OUT    = `filtre_${CODE}.csv`;
+const OUT = `filtre_${CODE}.csv`;
 const header = `"EntityNumber","ActivityGroup","NaceVersion","NaceCode","Classification"\n`;
-const out    = fs.createWriteStream(OUT, "utf8");
+const out = fs.createWriteStream(OUT, "utf8");
 out.write(header);
 
 let n = 0;
@@ -22,7 +22,9 @@ fs.createReadStream(`${DIR}/activity.csv`)
     if (r.NaceCode === CODE) {
       n++;
       out.write(
-        `"${r.EntityNumber}","${r.ActivityGroup || ""}","${r.NaceVersion || ""}","${r.NaceCode}","${r.Classification || ""}"\n`
+        `"${r.EntityNumber}","${r.ActivityGroup || ""}","${
+          r.NaceVersion || ""
+        }","${r.NaceCode}","${r.Classification || ""}"\n`
       );
     }
   })
