@@ -32,16 +32,13 @@ func ProcessCSVOptimized(db *sql.DB, csvPath, tableName string) error {
 	fmt.Printf("📄 CSV: %s\n", filepath.Base(csvPath))
 	fmt.Printf("📊 Columns: %v\n", headers)
 
-	// Optimize PostgreSQL settings for bulk insert
 	optimizeForBulkInsert(db)
 
-	// Drop table
 	dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
 	if _, err := db.Exec(dropSQL); err != nil {
 		return fmt.Errorf("error dropping table: %v", err)
 	}
 
-	// Create table with optimizations
 	var columns []string
 	cleanHeaders := make([]string, len(headers))
 	for i, header := range headers {
@@ -59,7 +56,6 @@ func ProcessCSVOptimized(db *sql.DB, csvPath, tableName string) error {
 		return fmt.Errorf("error creating table: %v", err)
 	}
 
-	// Use COPY for maximum speed
 	lineCount, err := copyInsert(db, reader, tableName, cleanHeaders)
 	if err != nil {
 		return err
@@ -92,7 +88,6 @@ func copyInsert(db *sql.DB, reader *csv.Reader, tableName string, headers []stri
 
 	fmt.Println("🔥 Starting COPY stream...")
 
-	// Stream data directly to PostgreSQL
 	for {
 		record, err := reader.Read()
 		if err != nil {
@@ -102,8 +97,7 @@ func copyInsert(db *sql.DB, reader *csv.Reader, tableName string, headers []stri
 			return 0, fmt.Errorf("error reading line %d: %v", lineCount+1, err)
 		}
 
-		// Convert to interface{} slice
-		values := make([]interface{}, len(record))
+		values := make([]any, len(record))
 		for i, v := range record {
 			values[i] = v
 		}
@@ -114,7 +108,6 @@ func copyInsert(db *sql.DB, reader *csv.Reader, tableName string, headers []stri
 
 		lineCount++
 
-		// Progress every 100k lines
 		if lineCount%100000 == 0 {
 			elapsed := time.Since(startTime)
 			linesPerSec := float64(lineCount) / elapsed.Seconds()
@@ -162,7 +155,6 @@ func optimizeForBulkInsert(db *sql.DB) error {
 	return nil
 }
 
-// Keep the old function for compatibility
 func ProcessCSV(db *sql.DB, csvPath, tableName string) error {
 	return ProcessCSVOptimized(db, csvPath, tableName)
 }
