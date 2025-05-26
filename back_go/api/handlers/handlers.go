@@ -38,3 +38,7 @@ func CountRows(db *sql.DB) gin.HandlerFunc {
 func ExportData(db *sql.DB) gin.HandlerFunc {
 	return _handlers.ExportData(db)
 }
+
+func GetCompleteStructure(db *sql.DB) gin.HandlerFunc {
+	return _handlers.GetCompleteStructure(db)
+}

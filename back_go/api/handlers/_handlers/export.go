@@ -2,6 +2,7 @@ package _handlers
 
 import (
 	"database/sql"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,6 +43,7 @@ func ExportData(db *sql.DB) gin.HandlerFunc {
 			columns = append(columns, col)
 		}
 
+		// Write CSV header
 		for i, col := range columns {
 			if i > 0 {
 				c.Writer.WriteString(",")
@@ -50,22 +52,46 @@ func ExportData(db *sql.DB) gin.HandlerFunc {
 		}
 		c.Writer.WriteString("\n")
 
-		dataRows, err := db.Query(`
-			SELECT `+columnName+`
+		// Query complète avec toutes les colonnes
+		rows, err := db.Query(`
+			SELECT `+strings.Join(columns, ",")+`
 			FROM `+tableName+`
 			WHERE `+columnName+` ILIKE $1
 		`, "%"+searchValue+"%")
 		if err != nil {
+			c.JSON(500, gin.H{"error": err.Error()})
 			return
 		}
-		defer dataRows.Close()
+		defer rows.Close()
 
-		for dataRows.Next() {
-			var value string
-			if err := dataRows.Scan(&value); err != nil {
+		// Écrire toutes les colonnes, pas juste une
+		for rows.Next() {
+			values := make([]sql.NullString, len(columns))
+			valuePtrs := make([]interface{}, len(columns))
+			for i := range values {
+				valuePtrs[i] = &values[i]
+			}
+
+			if err := rows.Scan(valuePtrs...); err != nil {
 				continue
 			}
-			c.Writer.WriteString(value + "\n")
+
+			// Write CSV line
+			for i, val := range values {
+				if i > 0 {
+					c.Writer.WriteString(",")
+				}
+				if val.Valid {
+					// Escape quotes in CSV
+					escaped := strings.ReplaceAll(val.String, `"`, `""`)
+					if strings.Contains(escaped, ",") || strings.Contains(escaped, "\n") || strings.Contains(escaped, `"`) {
+						c.Writer.WriteString(`"` + escaped + `"`)
+					} else {
+						c.Writer.WriteString(escaped)
+					}
+				}
+			}
+			c.Writer.WriteString("\n")
 		}
 	}
 }

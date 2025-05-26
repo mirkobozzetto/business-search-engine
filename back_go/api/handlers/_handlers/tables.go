@@ -1,6 +1,7 @@
 package _handlers
 
 import (
+	"csv-importer/api/models"
 	"database/sql"
 
 	"github.com/gin-gonic/gin"
@@ -92,5 +93,73 @@ func GetTableColumns(db *sql.DB) gin.HandlerFunc {
 		}
 
 		c.JSON(200, gin.H{"columns": columns})
+	}
+}
+
+
+func GetCompleteStructure(db *sql.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query := `
+			SELECT t.table_name,
+				   (SELECT count(*) FROM information_schema.columns WHERE table_name = t.table_name) as columns,
+				   pg_stat_get_live_tuples(cl.oid) as rows
+			FROM information_schema.tables t
+			LEFT JOIN pg_class cl ON cl.relname = t.table_name
+			WHERE t.table_schema = 'public'
+			ORDER BY t.table_name
+		`
+
+		rows, err := db.Query(query)
+		if err != nil {
+			c.JSON(500, models.Error("error getting tables: "+err.Error()))
+			return
+		}
+		defer rows.Close()
+
+		var result []models.TableStructure
+
+		for rows.Next() {
+			var tableName string
+			var columnCount, rowCount sql.NullInt64
+
+			if err := rows.Scan(&tableName, &columnCount, &rowCount); err != nil {
+				continue
+			}
+
+			colQuery := `
+				SELECT column_name, data_type, is_nullable
+				FROM information_schema.columns
+				WHERE table_name = $1
+				ORDER BY ordinal_position
+			`
+
+			colRows, err := db.Query(colQuery, tableName)
+			if err != nil {
+				continue
+			}
+
+			var columns []models.ColumnInfo
+			for colRows.Next() {
+				var colName, dataType, isNullable string
+				if err := colRows.Scan(&colName, &dataType, &isNullable); err != nil {
+					continue
+				}
+
+				columns = append(columns, models.ColumnInfo{
+					Name:     colName,
+					Type:     dataType,
+					Nullable: isNullable == "YES",
+				})
+			}
+			colRows.Close()
+
+			result = append(result, models.TableStructure{
+				Name:    tableName,
+				Rows:    rowCount.Int64,
+				Columns: columns,
+			})
+		}
+
+		c.JSON(200, models.Success(result))
 	}
 }

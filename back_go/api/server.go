@@ -46,6 +46,7 @@ func (s *Server) setupRoutes() {
 
 	// Tables
 	api.GET("/tables", handlers.ListTables(s.db))
+	api.GET("/tables/structure", handlers.GetCompleteStructure(s.db))
 	api.GET("/tables/:name/info", handlers.GetTableInfo(s.db))
 	api.GET("/tables/:name/columns", handlers.GetTableColumns(s.db))
 
@@ -66,7 +67,7 @@ func (s *Server) Start(port string) error {
 	return s.router.Run(port)
 }
 
-// StartAPIServer - fonction d'entrée
+
 func StartAPIServer() {
 	cfg := config.Load()
 	db, err := database.Connect(cfg)
