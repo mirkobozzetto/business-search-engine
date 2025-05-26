@@ -66,13 +66,15 @@ func processCSV(db *sql.DB, csvPath, tableName string) error {
 	}
 
 	fmt.Printf("📄 CSV: %s\n", filepath.Base(csvPath))
-	fmt.Printf("📊 Colonnes: %v\n", headers)
+	fmt.Printf("📊 Columns: %v\n", headers)
 
+	// Drop table
 	dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
 	if _, err := db.Exec(dropSQL); err != nil {
 		return fmt.Errorf("error dropping table: %v", err)
 	}
 
+	// Create table
 	var columns []string
 	for _, header := range headers {
 		cleanHeader := strings.ReplaceAll(header, " ", "_")
@@ -82,28 +84,23 @@ func processCSV(db *sql.DB, csvPath, tableName string) error {
 	}
 
 	createSQL := fmt.Sprintf("CREATE TABLE %s (%s)", tableName, strings.Join(columns, ", "))
-	fmt.Printf("🏗️  Création table: %s\n", tableName)
+	fmt.Printf("🏗️ Creating table: %s\n", tableName)
 
 	if _, err := db.Exec(createSQL); err != nil {
 		return fmt.Errorf("error creating table: %v", err)
 	}
 
-	placeholders := make([]string, len(headers))
-	for i := range placeholders {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-	}
-
-	insertSQL := fmt.Sprintf("INSERT INTO %s VALUES (%s)",
-		tableName, strings.Join(placeholders, ", "))
-
-	stmt, err := db.Prepare(insertSQL)
-	if err != nil {
-		return fmt.Errorf("error preparing INSERT: %v", err)
-	}
-	defer stmt.Close()
-
+	// Batch insert setup
 	lineCount := 0
-	batchSize := 1000
+	batchSize := 5000 // Plus gros batch
+	batch := make([][]any, 0, batchSize)
+
+	// Start transaction
+	tx, err := db.Begin()
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback()
 
 	for {
 		record, err := reader.Read()
@@ -114,24 +111,64 @@ func processCSV(db *sql.DB, csvPath, tableName string) error {
 			return fmt.Errorf("error reading line %d: %v", lineCount+1, err)
 		}
 
-		// Covert []string en any (or []interface{})
+		// Add to batch
 		values := make([]any, len(record))
 		for i, v := range record {
 			values[i] = v
 		}
-
-		if _, err := stmt.Exec(values...); err != nil {
-			return fmt.Errorf("error inserting line %d: %v", lineCount+1, err)
-		}
+		batch = append(batch, values)
 
 		lineCount++
-		if lineCount%batchSize == 0 {
+
+		// Insert batch when full
+		if len(batch) >= batchSize {
+			if err := insertBatch(tx, tableName, len(headers), batch); err != nil {
+				return fmt.Errorf("error inserting batch at line %d: %v", lineCount, err)
+			}
 			fmt.Printf("📈 Processed: %d lines\n", lineCount)
+			batch = batch[:0] // Reset batch
 		}
+	}
+
+	// Insert remaining batch
+	if len(batch) > 0 {
+		if err := insertBatch(tx, tableName, len(headers), batch); err != nil {
+			return fmt.Errorf("error inserting final batch: %v", err)
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
 	}
 
 	fmt.Printf("✅ Total inserted: %d lines\n", lineCount)
 	return nil
+}
+
+func insertBatch(tx *sql.Tx, tableName string, numCols int, batch [][]any) error {
+	if len(batch) == 0 {
+		return nil
+	}
+
+	// Build INSERT avec multiple VALUES
+	var valuePlaceholders []string
+	var allValues []any
+
+	for i, row := range batch {
+		var placeholders []string
+		for j := range numCols {
+			placeholders = append(placeholders, fmt.Sprintf("$%d", i*numCols+j+1))
+			allValues = append(allValues, row[j])
+		}
+		valuePlaceholders = append(valuePlaceholders, "("+strings.Join(placeholders, ", ")+")")
+	}
+
+	insertSQL := fmt.Sprintf("INSERT INTO %s VALUES %s",
+		tableName, strings.Join(valuePlaceholders, ", "))
+
+	_, err := tx.Exec(insertSQL, allValues...)
+	return err
 }
 
 func getEnv(key, defaultValue string) string {
