@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 func ProcessCSVOptimized(db *sql.DB, csvPath, tableName string) error {
@@ -47,7 +49,7 @@ func ProcessCSVOptimized(db *sql.DB, csvPath, tableName string) error {
 		cleanHeader = strings.ReplaceAll(cleanHeader, "-", "_")
 		cleanHeader = strings.ToLower(cleanHeader)
 		cleanHeaders[i] = cleanHeader
-		columns = append(columns, cleanHeader+" TEXT") // TEXT instead of VARCHAR(255)
+		columns = append(columns, cleanHeader+" TEXT")
 	}
 
 	createSQL := fmt.Sprintf("CREATE UNLOGGED TABLE %s (%s)", tableName, strings.Join(columns, ", "))
@@ -57,8 +59,8 @@ func ProcessCSVOptimized(db *sql.DB, csvPath, tableName string) error {
 		return fmt.Errorf("error creating table: %v", err)
 	}
 
-	// Use optimized batch insert (easier than COPY for now)
-	lineCount, err := optimizedBatchInsert(db, reader, tableName, cleanHeaders)
+	// Use COPY for maximum speed
+	lineCount, err := copyInsert(db, reader, tableName, cleanHeaders)
 	if err != nil {
 		return err
 	}
@@ -66,12 +68,12 @@ func ProcessCSVOptimized(db *sql.DB, csvPath, tableName string) error {
 	elapsed := time.Since(start)
 	linesPerSec := float64(lineCount) / elapsed.Seconds()
 
-	fmt.Printf("✅ Total: %d lines in %.2f sec (%.0f lines/sec)\n",
+	fmt.Printf("🚀 COPY: %d lines in %.2f sec (%.0f lines/sec)\n",
 		lineCount, elapsed.Seconds(), linesPerSec)
 	return nil
 }
 
-func optimizedBatchInsert(db *sql.DB, reader *csv.Reader, tableName string, headers []string) (int, error) {
+func copyInsert(db *sql.DB, reader *csv.Reader, tableName string, headers []string) (int, error) {
 	// Start transaction
 	tx, err := db.Begin()
 	if err != nil {
@@ -79,20 +81,18 @@ func optimizedBatchInsert(db *sql.DB, reader *csv.Reader, tableName string, head
 	}
 	defer tx.Rollback()
 
-	lineCount := 0
-	// Calculate optimal batch size based on PostgreSQL parameter limit
-	maxParams := 65000 // Slightly under the 65535 limit
-	optimalBatchSize := maxParams / len(headers)
-	if optimalBatchSize > 15000 {
-		optimalBatchSize = 15000 // Cap at reasonable size
+	// Prepare COPY statement
+	stmt, err := tx.Prepare(pq.CopyIn(tableName, headers...))
+	if err != nil {
+		return 0, fmt.Errorf("error preparing COPY: %v", err)
 	}
 
-	batchSize := optimalBatchSize
-	fmt.Printf("🎯 Optimal batch size: %d lines (%d params per batch)\n",
-		batchSize, batchSize*len(headers))
-	batch := make([][]any, 0, batchSize)
+	lineCount := 0
 	startTime := time.Now()
 
+	fmt.Println("🔥 Starting COPY stream...")
+
+	// Stream data directly to PostgreSQL
 	for {
 		record, err := reader.Read()
 		if err != nil {
@@ -102,33 +102,33 @@ func optimizedBatchInsert(db *sql.DB, reader *csv.Reader, tableName string, head
 			return 0, fmt.Errorf("error reading line %d: %v", lineCount+1, err)
 		}
 
-		// Add to batch
-		values := make([]any, len(record))
+		// Convert to interface{} slice
+		values := make([]interface{}, len(record))
 		for i, v := range record {
 			values[i] = v
 		}
-		batch = append(batch, values)
+
+		if _, err := stmt.Exec(values...); err != nil {
+			return 0, fmt.Errorf("error copying line %d: %v", lineCount+1, err)
+		}
+
 		lineCount++
 
-		// Insert batch when full
-		if len(batch) >= batchSize {
-			if err := insertBigBatch(tx, tableName, len(headers), batch); err != nil {
-				return 0, fmt.Errorf("error inserting batch at line %d: %v", lineCount, err)
-			}
-
+		// Progress every 100k lines
+		if lineCount%100000 == 0 {
 			elapsed := time.Since(startTime)
 			linesPerSec := float64(lineCount) / elapsed.Seconds()
-			fmt.Printf("📈 Processed: %d lines (%.0f lines/sec)\n", lineCount, linesPerSec)
-
-			batch = batch[:0] // Reset batch
+			fmt.Printf("🔥 COPY: %d lines (%.0f lines/sec)\n", lineCount, linesPerSec)
 		}
 	}
 
-	// Insert remaining batch
-	if len(batch) > 0 {
-		if err := insertBigBatch(tx, tableName, len(headers), batch); err != nil {
-			return 0, fmt.Errorf("error inserting final batch: %v", err)
-		}
+	// Finalize COPY
+	if _, err := stmt.Exec(); err != nil {
+		return 0, fmt.Errorf("error finalizing COPY: %v", err)
+	}
+
+	if err := stmt.Close(); err != nil {
+		return 0, fmt.Errorf("error closing COPY: %v", err)
 	}
 
 	// Commit transaction
@@ -139,49 +139,26 @@ func optimizedBatchInsert(db *sql.DB, reader *csv.Reader, tableName string, head
 	return lineCount, nil
 }
 
-func insertBigBatch(tx *sql.Tx, tableName string, numCols int, batch [][]any) error {
-	if len(batch) == 0 {
-		return nil
-	}
-
-	// Build INSERT with multiple VALUES - bigger batch
-	var valuePlaceholders []string
-	var allValues []any
-
-	for i, row := range batch {
-		var placeholders []string
-		for j := range numCols {
-			placeholders = append(placeholders, fmt.Sprintf("$%d", i*numCols+j+1))
-			allValues = append(allValues, row[j])
-		}
-		valuePlaceholders = append(valuePlaceholders, "("+strings.Join(placeholders, ", ")+")")
-	}
-
-	insertSQL := fmt.Sprintf("INSERT INTO %s VALUES %s",
-		tableName, strings.Join(valuePlaceholders, ", "))
-
-	_, err := tx.Exec(insertSQL, allValues...)
-	return err
-}
-
 func optimizeForBulkInsert(db *sql.DB) error {
 	optimizations := []string{
 		"SET synchronous_commit = OFF",
-		"SET wal_buffers = '64MB'",
-		"SET checkpoint_segments = 32",
+		"SET wal_buffers = '128MB'",
+		"SET checkpoint_segments = 64",
 		"SET checkpoint_completion_target = 0.9",
-		"SET maintenance_work_mem = '512MB'",
-		"SET work_mem = '256MB'",
+		"SET maintenance_work_mem = '1GB'",
+		"SET work_mem = '512MB'",
+		"SET shared_buffers = '512MB'",
+		"SET effective_cache_size = '2GB'",
+		"SET fsync = OFF", // DANGER: Only for imports!
 	}
 
 	for _, sql := range optimizations {
 		if _, err := db.Exec(sql); err != nil {
-			// Ignore errors for settings that might not exist
 			continue
 		}
 	}
 
-	fmt.Println("🚀 PostgreSQL optimized for bulk insert")
+	fmt.Println("🚀 PostgreSQL optimized for COPY")
 	return nil
 }
 
