@@ -19,6 +19,7 @@ func ExportData(db *sql.DB) gin.HandlerFunc {
 		columnName := c.Query("column")
 		searchValue := c.Query("search")
 		limitStr := c.DefaultQuery("limit", "10000")
+		format := c.DefaultQuery("format", "csv")
 
 		limit, err := strconv.Atoi(limitStr)
 		if err != nil || limit <= 0 || limit > 100000 {
@@ -95,7 +96,49 @@ func ExportData(db *sql.DB) gin.HandlerFunc {
 		}
 		defer dataRows.Close()
 
-		// Set CSV headers
+		// Check format
+		if format == "json" {
+			// JSON format
+			var data []map[string]any
+			rowCount := 0
+
+			for dataRows.Next() {
+				values := make([]sql.NullString, len(columns))
+				valuePtrs := make([]any, len(columns))
+				for i := range values {
+					valuePtrs[i] = &values[i]
+				}
+
+				if err := dataRows.Scan(valuePtrs...); err != nil {
+					continue
+				}
+
+				row := make(map[string]any)
+				for i, col := range columns {
+					if values[i].Valid {
+						row[col] = values[i].String
+					} else {
+						row[col] = nil
+					}
+				}
+				data = append(data, row)
+				rowCount++
+			}
+
+			result := map[string]any{
+				"table": tableName,
+				"data":  data,
+				"meta": models.Meta{
+					Count: rowCount,
+					Limit: limit,
+				},
+			}
+
+			c.JSON(200, models.Success(result))
+			return
+		}
+
+		// CSV format (default)
 		filename := fmt.Sprintf("%s_export.csv", tableName)
 		if searchValue != "" {
 			filename = fmt.Sprintf("%s_%s_export.csv", tableName, searchValue)
@@ -104,17 +147,14 @@ func ExportData(db *sql.DB) gin.HandlerFunc {
 		c.Header("Content-Type", "text/csv")
 		c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
 
-		// Create CSV writer
 		writer := csv.NewWriter(c.Writer)
 		defer writer.Flush()
 
-		// Write header
 		if err := writer.Write(columns); err != nil {
 			c.JSON(500, models.Error("failed to write CSV header"))
 			return
 		}
 
-		// Write data
 		rowCount := 0
 		for dataRows.Next() {
 			values := make([]sql.NullString, len(columns))
@@ -142,10 +182,7 @@ func ExportData(db *sql.DB) gin.HandlerFunc {
 			rowCount++
 		}
 
-		// If no data was written, we need to handle this differently
-		// since we already set headers for CSV download
 		if rowCount == 0 {
-			// Write an empty row to indicate no data
 			writer.Write([]string{"No data found"})
 		}
 
