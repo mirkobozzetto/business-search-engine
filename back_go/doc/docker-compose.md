@@ -63,16 +63,6 @@ psql -h localhost -p 5433 -U your_username -d your_database_name
 psql -h localhost -p 5432 -U your_username -d your_database_name
 ```
 
-### Using pgcli (from host)
-
-```bash
-# Port 5433
-pgcli -h localhost -p 5433 -U your_username -d your_database_name
-
-# Port 5432
-pgcli -h localhost -p 5432 -U your_username -d your_database_name
-```
-
 ### Connection String Format
 
 ```
