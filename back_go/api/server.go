@@ -19,7 +19,6 @@ func NewServer(db *sql.DB) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	// CORS
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -39,25 +38,26 @@ func NewServer(db *sql.DB) *Server {
 func (s *Server) setupRoutes() {
 	api := s.router.Group("/api")
 
-	// Health check
 	api.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok", "message": "CSV Importer API"})
 	})
 
-	// Tables
+	// Tables routes
 	api.GET("/tables", handlers.ListTables(s.db))
 	api.GET("/tables/structure", handlers.GetCompleteStructure(s.db))
 	api.GET("/tables/:name/info", handlers.GetTableInfo(s.db))
 	api.GET("/tables/:name/columns", handlers.GetTableColumns(s.db))
 
-	// Data
+	// Data routes
 	api.GET("/data/:table/preview", handlers.PreviewTable(s.db))
 	api.GET("/data/:table/values/:column", handlers.GetColumnValues(s.db))
 
-	// Search
+	// Search routes
 	api.GET("/search/:table/:column", handlers.SearchTable(s.db))
 	api.GET("/count/:table/:column", handlers.CountRows(s.db))
-	api.GET("/export/:table/:column", handlers.ExportData(s.db))
+
+	// Export routes
+	api.GET("/export/:table", handlers.ExportData(s.db))
 }
 
 func (s *Server) Start(port string) error {
@@ -66,7 +66,6 @@ func (s *Server) Start(port string) error {
 	log.Printf("📊 Tables: http://localhost%s/api/tables", port)
 	return s.router.Run(port)
 }
-
 
 func StartAPIServer() {
 	cfg := config.Load()

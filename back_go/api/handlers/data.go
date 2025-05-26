@@ -1,4 +1,4 @@
-package _handlers
+package handlers
 
 import (
 	"csv-importer/api/helpers"
@@ -26,7 +26,7 @@ func PreviewTable(db *sql.DB) gin.HandlerFunc {
 			return
 		}
 
-				// Safe query using validated table name with LIMIT
+		// Safe query using validated table name with LIMIT
 		builder := &helpers.QueryBuilder{}
 		builder.SetLimit(limit)
 		rows, err := helpers.SafeQueryWithBuilder(db, tableName, nil, builder)
