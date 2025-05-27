@@ -8,9 +8,18 @@ type APIResponse struct {
 }
 
 type Meta struct {
-	Count  int `json:"count,omitempty"`
-	Limit  int `json:"limit,omitempty"`
-	Offset int `json:"offset,omitempty"`
+	Count    int   `json:"count,omitempty"`
+	Total    int   `json:"total,omitempty"`
+	Limit    int   `json:"limit,omitempty"`
+	Offset   int   `json:"offset,omitempty"`
+	Page     int   `json:"page,omitempty"`
+	Pages    int   `json:"pages,omitempty"`
+	Duration int64 `json:"duration_ms,omitempty"`
+}
+
+type PaginatedResponse struct {
+	Data       any  `json:"data"`
+	Pagination Meta `json:"pagination"`
 }
 
 func Success(data any) APIResponse {
@@ -32,5 +41,12 @@ func Error(message string) APIResponse {
 	return APIResponse{
 		Success: false,
 		Error:   message,
+	}
+}
+
+func Paginated(data any, meta Meta) PaginatedResponse {
+	return PaginatedResponse{
+		Data:       data,
+		Pagination: meta,
 	}
 }

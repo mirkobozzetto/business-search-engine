@@ -2,6 +2,7 @@ package api
 
 import (
 	"csv-importer/api/handlers"
+	"csv-importer/api/middleware"
 	"csv-importer/config"
 	"csv-importer/database"
 	"database/sql"
@@ -19,6 +20,7 @@ func NewServer(db *sql.DB) *Server {
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
+	// Global middlewares
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -30,6 +32,8 @@ func NewServer(db *sql.DB) *Server {
 		c.Next()
 	})
 
+	router.Use(middleware.ResponseMiddleware())
+
 	server := &Server{db: db, router: router}
 	server.setupRoutes()
 	return server
@@ -39,25 +43,71 @@ func (s *Server) setupRoutes() {
 	api := s.router.Group("/api")
 
 	api.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok", "message": "CSV Importer API"})
+		responseHelper := middleware.GetResponseHelper(c)
+		responseHelper.Success(gin.H{"status": "ok", "message": "CSV Importer API"})
 	})
 
-	// Tables routes
-	api.GET("/tables", handlers.ListTables(s.db))
-	api.GET("/tables/structure", handlers.GetCompleteStructure(s.db))
-	api.GET("/tables/:name/info", handlers.GetTableInfo(s.db))
-	api.GET("/tables/:name/columns", handlers.GetTableColumns(s.db))
+	// Tables routes with middleware validation
+	tablesGroup := api.Group("/tables")
+	{
+		tablesGroup.GET("", handlers.ListTables(s.db))
+		tablesGroup.GET("/structure", handlers.GetCompleteStructure(s.db))
 
-	// Data routes
-	api.GET("/data/:table/preview", handlers.PreviewTable(s.db))
-	api.GET("/data/:table/values/:column", handlers.GetColumnValues(s.db))
+		// Routes requiring table validation
+		tablesGroup.Use(middleware.ValidateTableName())
+		tablesGroup.GET("/:name/info", handlers.GetTableInfo(s.db))
+		tablesGroup.GET("/:name/columns", handlers.GetTableColumns(s.db))
+	}
 
-	// Search routes
-	api.GET("/search/:table/:column", handlers.SearchTable(s.db))
-	api.GET("/count/:table/:column", handlers.CountRows(s.db))
+	// Data routes with middleware
+	dataGroup := api.Group("/data")
+	dataGroup.Use(middleware.ValidateTableName())
+	{
+		dataGroup.GET("/:table/preview",
+			middleware.ParseLimitParam(5, 100),
+			handlers.PreviewTable(s.db),
+		)
 
-	// Export routes
-	api.GET("/export/:table", handlers.ExportData(s.db))
+		dataGroup.Use(middleware.ValidateColumnName(s.db))
+		dataGroup.GET("/:table/values/:column",
+			middleware.ParseLimitParam(20, 1000),
+			handlers.GetColumnValues(s.db),
+		)
+	}
+
+	// Search routes with validation middleware
+	searchGroup := api.Group("/search")
+	searchGroup.Use(middleware.ValidateTableName())
+	searchGroup.Use(middleware.ValidateColumnName(s.db))
+	{
+		searchGroup.GET("/:table/:column",
+			middleware.ValidateSearchQuery(),
+			middleware.ParseLimitParam(50, 1000),
+			handlers.SearchTable(s.db),
+		)
+	}
+
+	// Count routes
+	countGroup := api.Group("/count")
+	countGroup.Use(middleware.ValidateTableName())
+	countGroup.Use(middleware.ValidateColumnName(s.db))
+	{
+		countGroup.GET("/:table/:column",
+			middleware.ValidateSearchQuery(),
+			handlers.CountRows(s.db),
+		)
+	}
+
+	// Export routes with enhanced middleware
+	exportGroup := api.Group("/export")
+	exportGroup.Use(middleware.ValidateTableName())
+	{
+		exportGroup.GET("/:table",
+			middleware.ParseLimitParam(10000, 100000),
+			middleware.ParseFormatParam(),
+			handlers.ExportData(s.db),
+		)
+	}
 }
 
 func (s *Server) Start(port string) error {
