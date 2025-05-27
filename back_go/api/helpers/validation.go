@@ -10,7 +10,7 @@ import (
 
 var ValidTables = []string{
 	"activity", "address", "branch", "code", "contact",
-	"denomination", "enterprise", "establishment", "meta",
+	"denomination", "enterprise", "establishment", "meta", "nacecode",
 }
 
 var ValidOperators = []string{

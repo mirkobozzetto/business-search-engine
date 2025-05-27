@@ -114,6 +114,7 @@ func (s *Server) Start(port string) error {
 	log.Printf("🚀 API Server starting on port %s", port)
 	log.Printf("📡 Health: http://localhost%s/api/health", port)
 	log.Printf("📊 Tables: http://localhost%s/api/tables", port)
+	log.Printf("📊 Tables Structure: http://localhost%s/api/tables/structure", port)
 	return s.router.Run(port)
 }
 
