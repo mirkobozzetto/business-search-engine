@@ -15,7 +15,6 @@ type CSVFile struct {
 	TableName string
 }
 
-
 func getCSVFiles(csvDir string) ([]CSVFile, error) {
 	var csvFiles []CSVFile
 
@@ -33,7 +32,6 @@ func getCSVFiles(csvDir string) ([]CSVFile, error) {
 			continue
 		}
 
-		// Generate table name from filename
 		tableName := strings.TrimSuffix(strings.ToLower(file.Name()), ".csv")
 		tableName = strings.ReplaceAll(tableName, "-", "_")
 		tableName = strings.ReplaceAll(tableName, " ", "_")
@@ -48,7 +46,6 @@ func getCSVFiles(csvDir string) ([]CSVFile, error) {
 	return csvFiles, nil
 }
 
-
 func ProcessAllCSVsParallel(db *sql.DB, csvDir string) error {
 	csvFiles, err := getCSVFiles(csvDir)
 	if err != nil {
@@ -59,14 +56,14 @@ func ProcessAllCSVsParallel(db *sql.DB, csvDir string) error {
 		return fmt.Errorf("no CSV files found in %s", csvDir)
 	}
 
-	fmt.Printf("🚀 PARALLEL processing %d CSV files\n", len(csvFiles))
+	fmt.Printf("🔥 BLAZING FAST processing %d CSV files\n", len(csvFiles))
 
 	totalStart := time.Now()
 
 	for i, csvFile := range csvFiles {
-		fmt.Printf("\n⚡ [%d/%d] Processing %s in PARALLEL...\n", i+1, len(csvFiles), csvFile.Name)
+		fmt.Printf("\n🔥 [%d/%d] Processing %s BLAZING FAST...\n", i+1, len(csvFiles), csvFile.Name)
 
-		if err := ProcessCSVParallel(db, csvFile.Path, csvFile.TableName); err != nil {
+		if err := ProcessCSVBlazingFast(db, csvFile.Path, csvFile.TableName); err != nil {
 			return fmt.Errorf("error processing %s: %v", csvFile.Name, err)
 		}
 
@@ -74,7 +71,7 @@ func ProcessAllCSVsParallel(db *sql.DB, csvDir string) error {
 	}
 
 	totalElapsed := time.Since(totalStart)
-	fmt.Printf("\n🏆 ALL %d TABLES CREATED (PARALLEL) in %.2f minutes\n", len(csvFiles), totalElapsed.Minutes())
+	fmt.Printf("\n🏆 ALL %d TABLES CREATED (BLAZING FAST) in %.2f minutes\n", len(csvFiles), totalElapsed.Minutes())
 
 	fmt.Println("\n📊 SUMMARY:")
 	for _, csvFile := range csvFiles {

@@ -48,3 +48,10 @@ func OptimizeForBulkInsert(db *sql.DB) error {
 	fmt.Println("🚀 PostgreSQL optimized for COPY")
 	return nil
 }
+
+func MinInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}

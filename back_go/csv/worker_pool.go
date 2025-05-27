@@ -45,7 +45,7 @@ func (wp *WorkerPool) ProcessChunks(chunks []CSVChunk) (int, error) {
 	close(chunkChan)
 
 	var wg sync.WaitGroup
-	for i := 0; i < wp.numWorkers; i++ {
+	for i := range wp.numWorkers {
 		wg.Add(1)
 		go wp.worker(i, chunkChan, resultChan, &wg)
 	}
