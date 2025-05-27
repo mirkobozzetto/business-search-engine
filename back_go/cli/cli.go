@@ -3,7 +3,6 @@ package cli
 import (
 	"csv-importer/cli/handlers"
 	"database/sql"
-	"fmt"
 	"os"
 )
 
@@ -33,6 +32,8 @@ func (c *CLI) Execute(args []string) {
 		handlers.HandleAPI()
 	case "all":
 		handlers.HandleImportAll(c.db)
+	case "test-redis":
+		handlers.HandleTestRedis(c.db)
 	case "list":
 		handlers.HandleListCSVs()
 	case "tables":
@@ -58,7 +59,6 @@ func (c *CLI) Execute(args []string) {
 	case "help", "--help", "-h":
 		handlers.ShowHelp()
 	default:
-		fmt.Printf("❌ Unknown command: %s\n", command)
 		handlers.ShowHelp()
 		os.Exit(1)
 	}

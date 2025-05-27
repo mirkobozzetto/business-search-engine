@@ -56,12 +56,12 @@ func ProcessAllCSVsParallel(db *sql.DB, csvDir string) error {
 		return fmt.Errorf("no CSV files found in %s", csvDir)
 	}
 
-	fmt.Printf("🔥 BLAZING FAST processing %d CSV files\n", len(csvFiles))
+	fmt.Printf("🔥 BLAZINGLY FAST processing %d CSV files\n", len(csvFiles))
 
 	totalStart := time.Now()
 
 	for i, csvFile := range csvFiles {
-		fmt.Printf("\n🔥 [%d/%d] Processing %s BLAZING FAST...\n", i+1, len(csvFiles), csvFile.Name)
+		fmt.Printf("\n🔥 [%d/%d] Processing %s BLAZINGLY FAST...\n", i+1, len(csvFiles), csvFile.Name)
 
 		if err := ProcessCSVBlazingFast(db, csvFile.Path, csvFile.TableName); err != nil {
 			return fmt.Errorf("error processing %s: %v", csvFile.Name, err)
@@ -71,7 +71,7 @@ func ProcessAllCSVsParallel(db *sql.DB, csvDir string) error {
 	}
 
 	totalElapsed := time.Since(totalStart)
-	fmt.Printf("\n🏆 ALL %d TABLES CREATED (BLAZING FAST) in %.2f minutes\n", len(csvFiles), totalElapsed.Minutes())
+	fmt.Printf("\n🏆 ALL %d TABLES CREATED (BLAZINGLY FAST) in %.2f minutes\n", len(csvFiles), totalElapsed.Minutes())
 
 	fmt.Println("\n📊 SUMMARY:")
 	for _, csvFile := range csvFiles {
