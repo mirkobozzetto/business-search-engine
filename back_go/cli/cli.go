@@ -1,122 +1,65 @@
 package cli
 
 import (
-	"csv-importer/api"
-	"csv-importer/cli/_cli"
-	"csv-importer/query"
+	"csv-importer/cli/handlers"
 	"database/sql"
 	"fmt"
 	"os"
 )
 
+type CLI struct {
+	db *sql.DB
+}
+
+func New(db *sql.DB) *CLI {
+	return &CLI{db: db}
+}
+
 func Run(db *sql.DB, args []string) {
+	cli := New(db)
+	cli.Execute(args)
+}
+
+func (c *CLI) Execute(args []string) {
 	if len(args) < 2 {
-		_cli.ShowHelp()
+		handlers.ShowHelp()
 		os.Exit(1)
 	}
 
-	switch args[1] {
+	command := args[1]
+
+	switch command {
 	case "api":
-		api.StartAPIServer()
-		fmt.Println("🚀 API Server started")
-		os.Exit(0)
+		handlers.HandleAPI()
 	case "all":
-		_cli.ProcessAllCSVs(db)
-		fmt.Println("🎉 Import done!")
+		handlers.HandleImportAll(c.db)
 	case "list":
-		_cli.ListAvailableCSVs()
+		handlers.HandleListCSVs()
 	case "tables":
-		if err := query.ListTables(db); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleListTables(c.db)
 	case "stats":
-		if err := query.ShowStats(db); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleShowStats(c.db)
 	case "info":
-		if len(args) < 3 {
-			fmt.Println("❌ Usage: go run main.go info <table_name>")
-			os.Exit(1)
-		}
-		if err := query.ShowTableInfo(db, args[2]); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleTableInfo(c.db, args[2:])
 	case "columns":
-		if len(args) < 3 {
-			fmt.Println("❌ Usage: go run main.go columns <table_name>")
-			os.Exit(1)
-		}
-		if err := query.ShowColumns(db, args[2]); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleShowColumns(c.db, args[2:])
 	case "values":
-		if len(args) < 4 {
-			fmt.Println("❌ Usage: go run main.go values <table_name> <column_name> [limit]")
-			os.Exit(1)
-		}
-		limit := 20
-		if len(args) > 4 {
-			fmt.Sscanf(args[4], "%d", &limit)
-		}
-		if err := query.ShowColumnValues(db, args[2], args[3], limit); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleColumnValues(c.db, args[2:])
 	case "search":
-		if len(args) < 5 {
-			fmt.Println("❌ Usage: go run main.go search <table_name> <column_name> <search_value> [limit]")
-			os.Exit(1)
-		}
-		limit := 10
-		if len(args) > 5 {
-			fmt.Sscanf(args[5], "%d", &limit)
-		}
-		if err := query.SearchTable(db, args[2], args[3], args[4], limit); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleSearch(c.db, args[2:])
 	case "count":
-		if len(args) < 5 {
-			fmt.Println("❌ Usage: go run main.go count <table_name> <column_name> <search_value>")
-			os.Exit(1)
-		}
-		if err := query.CountRows(db, args[2], args[3], args[4]); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleCount(c.db, args[2:])
 	case "sample":
-		if len(args) < 5 {
-			fmt.Println("❌ Usage: go run main.go sample <table_name> <column_name> <search_value> [limit]")
-			os.Exit(1)
-		}
-		limit := 10
-		if len(args) > 5 {
-			fmt.Sscanf(args[5], "%d", &limit)
-		}
-		if err := query.SampleRows(db, args[2], args[3], args[4], limit); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleSample(c.db, args[2:])
 	case "export":
-		if len(args) < 6 {
-			fmt.Println("❌ Usage: go run main.go export <table_name> <column_name> <search_value> <filename.csv>")
-			os.Exit(1)
-		}
-		if err := query.ExportToCSV(db, args[2], args[3], args[4], args[5]); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandleExport(c.db, args[2:])
 	case "preview":
-		if len(args) < 3 {
-			fmt.Println("❌ Usage: go run main.go preview <table_name> [limit]")
-			os.Exit(1)
-		}
-		limit := 5
-		if len(args) > 3 {
-			fmt.Sscanf(args[3], "%d", &limit)
-		}
-		if err := query.PreviewTable(db, args[2], limit); err != nil {
-			fmt.Printf("❌ Error: %v\n", err)
-		}
+		handlers.HandlePreview(c.db, args[2:])
 	case "help", "--help", "-h":
-		_cli.ShowHelp()
+		handlers.ShowHelp()
 	default:
-		_cli.ProcessSingleCSV(db, args[1:])
-		fmt.Println("🎉 Import done!")
+		fmt.Printf("❌ Unknown command: %s\n", command)
+		handlers.ShowHelp()
+		os.Exit(1)
 	}
 }
