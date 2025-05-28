@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"csv-importer/api/helpers"
+	"csv-importer/api/helpers/utils"
 	"csv-importer/api/models"
 	"database/sql"
 	"fmt"
@@ -27,7 +28,7 @@ func PreviewTable(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Safe query using validated table name with LIMIT
-		builder := &helpers.QueryBuilder{}
+		builder := &utils.QueryBuilder{}
 		builder.SetLimit(limit)
 		rows, err := helpers.SafeQueryWithBuilder(db, tableName, nil, builder)
 		if err != nil {
@@ -104,7 +105,7 @@ func GetColumnValues(db *sql.DB) gin.HandlerFunc {
 		}
 
 		// Safe query using QueryBuilder
-		builder := &helpers.QueryBuilder{}
+		builder := &utils.QueryBuilder{}
 		builder.SetLimit(limit)
 		// Note: GROUP BY and ORDER BY are not supported by QueryBuilder
 		// Direct usage but secure because tableName and columnName are validated

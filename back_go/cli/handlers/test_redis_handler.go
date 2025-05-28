@@ -45,7 +45,7 @@ func HandleTestRedis(db *sql.DB) {
 	testData := map[string]interface{}{
 		"entity_number": "123456789",
 		"name":          "Test Company",
-		"nace_code":     "62020",
+		"nacecode":     "62020",
 		"contacts": map[string]string{
 			"email": "test@example.be",
 			"phone": "+32123456789",

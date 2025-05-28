@@ -87,6 +87,9 @@ func (s *Server) setupRoutes() {
 		)
 	}
 
+	// Route spéciale pour nacecode (query optionnelle, pas de limite par défaut)
+	api.GET("/search/nacecode", handlers.SearchNaceCode(s.db))
+
 	// Count routes
 	countGroup := api.Group("/count")
 	countGroup.Use(middleware.ValidateTableName())
@@ -113,8 +116,8 @@ func (s *Server) setupRoutes() {
 func (s *Server) Start(port string) error {
 	log.Printf("🚀 API Server starting on port %s", port)
 	log.Printf("📡 Health: http://localhost%s/api/health", port)
-	log.Printf("📊 Tables: http://localhost%s/api/tables", port)
 	log.Printf("📊 Tables Structure: http://localhost%s/api/tables/structure", port)
+	log.Printf("🔍 NACE Search: http://localhost%s/api/search/nacecode", port)
 	return s.router.Run(port)
 }
 

@@ -47,7 +47,7 @@ GET /api/search/activity/nace_code?q=62020&limit=100
 ### Export IT companies
 
 ```http
-GET /api/export/activity?column=nace_code&search=62020&limit=5000
+GET /api/export/activity?column=nacecode&search=62020&limit=5000
 ```
 
 ### Preview enterprise table

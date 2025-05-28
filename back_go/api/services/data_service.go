@@ -2,6 +2,7 @@ package services
 
 import (
 	"csv-importer/api/helpers"
+	"csv-importer/api/helpers/utils"
 	"csv-importer/api/models"
 	"database/sql"
 	"fmt"
@@ -24,7 +25,7 @@ func (s *DataService) PreviewTable(tableName string, limit int) (*models.Preview
 		return nil, fmt.Errorf("invalid limit: must be between 1 and 100")
 	}
 
-	builder := &helpers.QueryBuilder{}
+	builder := &utils.QueryBuilder{}
 	builder.SetLimit(limit)
 	rows, err := helpers.SafeQueryWithBuilder(s.db, tableName, nil, builder)
 	if err != nil {
@@ -32,35 +33,9 @@ func (s *DataService) PreviewTable(tableName string, limit int) (*models.Preview
 	}
 	defer rows.Close()
 
-	columns, err := rows.Columns()
+	data, columns, err := utils.ScanRowsToMapsWithColumns(rows)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get columns: %v", err)
-	}
-
-	var data []map[string]any
-	rowCount := 0
-
-	for rows.Next() {
-		values := make([]sql.NullString, len(columns))
-		valuePtrs := make([]any, len(columns))
-		for i := range values {
-			valuePtrs[i] = &values[i]
-		}
-
-		if err := rows.Scan(valuePtrs...); err != nil {
-			continue
-		}
-
-		row := make(map[string]any)
-		for i, col := range columns {
-			if values[i].Valid {
-				row[col] = values[i].String
-			} else {
-				row[col] = nil
-			}
-		}
-		data = append(data, row)
-		rowCount++
+		return nil, err
 	}
 
 	return &models.PreviewData{
@@ -68,7 +43,7 @@ func (s *DataService) PreviewTable(tableName string, limit int) (*models.Preview
 		Columns: columns,
 		Data:    data,
 		Meta: models.Meta{
-			Count: rowCount,
+			Count: len(data),
 			Limit: limit,
 		},
 	}, nil
@@ -87,32 +62,17 @@ func (s *DataService) GetColumnValues(tableName, columnName string, limit int) (
 		return nil, fmt.Errorf("invalid limit: must be between 1 and 1000")
 	}
 
-	query := fmt.Sprintf(`
-		SELECT %s, count(*) as count
-		FROM %s
-		WHERE %s IS NOT NULL AND %s != ''
-		GROUP BY %s
-		ORDER BY count DESC
-		LIMIT $1
-	`, columnName, tableName, columnName, columnName, columnName)
+	query, args := utils.BuildColumnStatsQuery(tableName, columnName, limit)
 
-	rows, err := s.db.Query(query, limit)
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("database error: %v", err)
 	}
 	defer rows.Close()
 
-	var values []models.ColumnValue
-	for rows.Next() {
-		var value string
-		var count int64
-		if err := rows.Scan(&value, &count); err != nil {
-			continue
-		}
-		values = append(values, models.ColumnValue{
-			Value: value,
-			Count: count,
-		})
+	values, err := utils.ScanColumnValues(rows)
+	if err != nil {
+		return nil, fmt.Errorf("scan error: %v", err)
 	}
 
 	return &models.ColumnValues{
