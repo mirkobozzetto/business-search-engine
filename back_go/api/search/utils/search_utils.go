@@ -55,40 +55,6 @@ func (sb *SearchBuilder) BuildMultiWordSearch(searchValue string) (string, []any
 	return whereClause, sb.args
 }
 
-func (sb *SearchBuilder) BuildSimpleSearch(searchValue string) (string, []any) {
-	if searchValue == "" {
-		return "", sb.args
-	}
-
-	var columnConditions []string
-
-	for _, column := range sb.columns {
-		sb.args = append(sb.args, "%"+searchValue+"%")
-		columnConditions = append(columnConditions, fmt.Sprintf("%s ILIKE $%d", column, len(sb.args)))
-	}
-
-	whereClause := strings.Join(columnConditions, " OR ")
-
-	if len(columnConditions) > 1 {
-		whereClause = "(" + whereClause + ")"
-	}
-
-	return whereClause, sb.args
-}
-
-func ParseOptionalLimit(limitStr string, defaultLimit int) int {
-	if limitStr == "" {
-		return defaultLimit
-	}
-
-	limit := 0
-	if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil || limit <= 0 {
-		return defaultLimit
-	}
-
-	return limit
-}
-
 func BuildNaceCodeQuery(searchValue string, limit int) (string, []any) {
 	columns := []string{"activités", "libellé_fr", "omschrijving_nl"}
 	builder := NewSearchBuilder(columns)
@@ -111,4 +77,17 @@ func BuildNaceCodeQuery(searchValue string, limit int) (string, []any) {
 	}
 
 	return fmt.Sprintf("%s WHERE %s ORDER BY nacecode", selectClause, whereClause), args
+}
+
+func ParseOptionalLimit(limitStr string, defaultLimit int) int {
+	if limitStr == "" {
+		return defaultLimit
+	}
+
+	limit := 0
+	if _, err := fmt.Sscanf(limitStr, "%d", &limit); err != nil || limit <= 0 {
+		return defaultLimit
+	}
+
+	return limit
 }

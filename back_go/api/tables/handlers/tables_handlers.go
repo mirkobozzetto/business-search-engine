@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"csv-importer/api/middleware"
-	"csv-importer/api/services"
+	"csv-importer/api/tables/services"
 	"database/sql"
 
 	"github.com/gin-gonic/gin"

@@ -1,8 +1,11 @@
 package api
 
 import (
-	"csv-importer/api/handlers"
+	datahandlers "csv-importer/api/data/handlers"
+	exporthandlers "csv-importer/api/export/handlers"
 	"csv-importer/api/middleware"
+	searchhandlers "csv-importer/api/search/handlers"
+	tableshandlers "csv-importer/api/tables/handlers"
 	"csv-importer/config"
 	"csv-importer/database"
 	"database/sql"
@@ -50,13 +53,13 @@ func (s *Server) setupRoutes() {
 	// Tables routes with middleware validation
 	tablesGroup := api.Group("/tables")
 	{
-		tablesGroup.GET("", handlers.ListTables(s.db))
-		tablesGroup.GET("/structure", handlers.GetCompleteStructure(s.db))
+		tablesGroup.GET("", tableshandlers.ListTables(s.db))
+		tablesGroup.GET("/structure", tableshandlers.GetCompleteStructure(s.db))
 
 		// Routes requiring table validation
 		tablesGroup.Use(middleware.ValidateTableName())
-		tablesGroup.GET("/:name/info", handlers.GetTableInfo(s.db))
-		tablesGroup.GET("/:name/columns", handlers.GetTableColumns(s.db))
+		tablesGroup.GET("/:name/info", tableshandlers.GetTableInfo(s.db))
+		tablesGroup.GET("/:name/columns", tableshandlers.GetTableColumns(s.db))
 	}
 
 	// Data routes with middleware
@@ -65,13 +68,13 @@ func (s *Server) setupRoutes() {
 	{
 		dataGroup.GET("/:table/preview",
 			middleware.ParseLimitParam(5, 100),
-			handlers.PreviewTable(s.db),
+			datahandlers.PreviewTable(s.db),
 		)
 
 		dataGroup.Use(middleware.ValidateColumnName(s.db))
 		dataGroup.GET("/:table/values/:column",
 			middleware.ParseLimitParam(20, 1000),
-			handlers.GetColumnValues(s.db),
+			datahandlers.GetColumnValues(s.db),
 		)
 	}
 
@@ -83,12 +86,12 @@ func (s *Server) setupRoutes() {
 		searchGroup.GET("/:table/:column",
 			middleware.ValidateSearchQuery(),
 			middleware.ParseLimitParam(50, 1000),
-			handlers.SearchTable(s.db),
+			searchhandlers.SearchTable(s.db),
 		)
 	}
 
-	// Route spéciale pour nacecode (query optionnelle, pas de limite par défaut)
-	api.GET("/search/nacecode", handlers.SearchNaceCode(s.db))
+	// Route spéciale pour nacecode
+	api.GET("/search/nacecode", searchhandlers.SearchNaceCode(s.db))
 
 	// Count routes
 	countGroup := api.Group("/count")
@@ -97,7 +100,7 @@ func (s *Server) setupRoutes() {
 	{
 		countGroup.GET("/:table/:column",
 			middleware.ValidateSearchQuery(),
-			handlers.CountRows(s.db),
+			searchhandlers.CountRows(s.db),
 		)
 	}
 
@@ -108,7 +111,7 @@ func (s *Server) setupRoutes() {
 		exportGroup.GET("/:table",
 			middleware.ParseLimitParam(10000, 100000),
 			middleware.ParseFormatParam(),
-			handlers.ExportData(s.db),
+			exporthandlers.ExportData(s.db),
 		)
 	}
 }
