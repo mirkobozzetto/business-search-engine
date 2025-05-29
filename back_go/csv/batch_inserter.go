@@ -1,47 +1,51 @@
 package csv
 
 import (
-	"database/sql"
+	"context"
+	"csv-importer/config"
+	"csv-importer/database"
+	"fmt"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
 )
 
-func InsertBatch(db *sql.DB, tableName string, headers []string, batch [][]string) error {
+func InsertBatch(tableName string, headers []string, batch [][]string) error {
 	if len(batch) == 0 {
 		return nil
 	}
 
-	tx, err := db.Begin()
+	cfg := config.Load()
+	conn, err := database.ConnectPgxNative(cfg)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to connect for batch insert: %w", err)
 	}
-	defer tx.Rollback()
+	defer conn.Close(context.Background())
 
-	stmt, err := tx.Prepare(pq.CopyIn(tableName, headers...))
+	rows := make([][]any, len(batch))
+	for i, record := range batch {
+		row := make([]any, len(record))
+		for j, v := range record {
+			row[j] = v
+		}
+		rows[i] = row
+	}
+
+	rowsAffected, err := conn.CopyFrom(
+		context.Background(),
+		pgx.Identifier{tableName},
+		headers,
+		pgx.CopyFromSlice(len(rows), func(i int) ([]any, error) {
+			return rows[i], nil
+		}),
+	)
+
 	if err != nil {
-		return err
+		return fmt.Errorf("copy from failed: %w", err)
 	}
 
-	for _, record := range batch {
-		values := make([]any, len(record))
-		for i, v := range record {
-			values[i] = v
-		}
-
-		if _, err := stmt.Exec(values...); err != nil {
-			stmt.Close()
-			return err
-		}
+	if rowsAffected != int64(len(batch)) {
+		return fmt.Errorf("expected %d rows, got %d", len(batch), rowsAffected)
 	}
 
-	if _, err := stmt.Exec(); err != nil {
-		stmt.Close()
-		return err
-	}
-
-	if err := stmt.Close(); err != nil {
-		return err
-	}
-
-	return tx.Commit()
+	return nil
 }

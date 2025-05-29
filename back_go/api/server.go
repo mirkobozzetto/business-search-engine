@@ -116,7 +116,6 @@ func (s *Server) setupRoutes() {
 
 	searchGroup := api.Group("/search")
 	searchGroup.Use(middleware.ValidateTableName())
-	searchGroup.Use(middleware.ValidateColumnName(s.db))
 	{
 		searchGroup.GET("/:table/:column",
 			middleware.ValidateSearchQuery(),
