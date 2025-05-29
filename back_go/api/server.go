@@ -9,7 +9,8 @@ import (
 	"csv-importer/config"
 	"csv-importer/database"
 	"database/sql"
-	"log"
+	"log/slog"
+	"os"
 
 	"github.com/gin-gonic/gin"
 )
@@ -117,10 +118,10 @@ func (s *Server) setupRoutes() {
 }
 
 func (s *Server) Start(port string) error {
-	log.Printf("🚀 API Server starting on port %s", port)
-	log.Printf("📡 Health: http://localhost%s/api/health", port)
-	log.Printf("📊 Tables Structure: http://localhost%s/api/tables/structure", port)
-	log.Printf("🔍 NACE Search: http://localhost%s/api/search/nacecode", port)
+	slog.Info("🚀 API Server starting", "port", port)
+	slog.Info("📡 Health endpoint", "url", "http://localhost"+port+"/api/health")
+	slog.Info("📊 Tables Structure endpoint", "url", "http://localhost"+port+"/api/tables/structure")
+	slog.Info("🔍 NACE Search endpoint", "url", "http://localhost"+port+"/api/search/nacecode")
 	return s.router.Run(port)
 }
 
@@ -128,12 +129,14 @@ func StartAPIServer() {
 	cfg := config.Load()
 	db, err := database.Connect(cfg)
 	if err != nil {
-		log.Fatal("❌ Database connection failed:", err)
+		slog.Error("❌ Database connection failed", "error", err)
+		os.Exit(1)
 	}
 	defer db.Close()
 
 	server := NewServer(db)
 	if err := server.Start(":8080"); err != nil {
-		log.Fatal("❌ Server failed to start:", err)
+		slog.Error("❌ Server failed to start", "error", err)
+		os.Exit(1)
 	}
 }

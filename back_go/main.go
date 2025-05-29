@@ -4,8 +4,7 @@ import (
 	"csv-importer/cli"
 	"csv-importer/config"
 	"csv-importer/database"
-	"fmt"
-	"log"
+	"log/slog"
 	"os"
 )
 
@@ -14,11 +13,11 @@ func main() {
 
 	db, err := database.Connect(cfg)
 	if err != nil {
-		log.Fatal("❌ DB connection failed:", err)
+		slog.Error("❌ DB connection failed", "error", err)
 	}
 	defer db.Close()
 
-	fmt.Println("✅ DB connected")
+	slog.Info("✅ DB connected")
 
 	cli.Run(db, os.Args)
 }
