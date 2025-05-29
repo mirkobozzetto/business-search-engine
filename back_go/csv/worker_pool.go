@@ -1,18 +1,20 @@
 package csv
 
 import (
-	"database/sql"
+	"context"
+	"csv-importer/config"
+	"csv-importer/database"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/lib/pq"
+	"github.com/jackc/pgx/v5"
 )
 
 type WorkerPool struct {
-	db        *sql.DB
-	tableName string
-	headers   []string
+	cfg        *config.Config
+	tableName  string
+	headers    []string
 	numWorkers int
 }
 
@@ -23,9 +25,9 @@ type ChunkResult struct {
 	Duration  time.Duration
 }
 
-func NewWorkerPool(db *sql.DB, tableName string, headers []string, numWorkers int) *WorkerPool {
+func NewWorkerPool(tableName string, headers []string, numWorkers int) *WorkerPool {
 	return &WorkerPool{
-		db:         db,
+		cfg:        config.Load(),
 		tableName:  tableName,
 		headers:    headers,
 		numWorkers: numWorkers,
@@ -33,7 +35,7 @@ func NewWorkerPool(db *sql.DB, tableName string, headers []string, numWorkers in
 }
 
 func (wp *WorkerPool) ProcessChunks(chunks []CSVChunk) (int, error) {
-	fmt.Printf("🔥 Processing %d chunks with %d workers\n", len(chunks), wp.numWorkers)
+	fmt.Printf("🔥 Processing %d chunks with %d workers (pgx)\n", len(chunks), wp.numWorkers)
 
 	chunkChan := make(chan CSVChunk, len(chunks))
 	resultChan := make(chan ChunkResult, len(chunks))
@@ -61,11 +63,18 @@ func (wp *WorkerPool) ProcessChunks(chunks []CSVChunk) (int, error) {
 func (wp *WorkerPool) worker(workerID int, chunkChan <-chan CSVChunk, resultChan chan<- ChunkResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	fmt.Printf("⚡ Worker %d started\n", workerID)
+	fmt.Printf("⚡ pgx Worker %d started\n", workerID)
+
+	conn, err := database.ConnectPgxNative(wp.cfg)
+	if err != nil {
+		fmt.Printf("❌ Worker %d connection failed: %v\n", workerID, err)
+		return
+	}
+	defer conn.Close(context.Background())
 
 	for chunk := range chunkChan {
 		start := time.Now()
-		lineCount, err := wp.processChunk(chunk)
+		lineCount, err := wp.processChunk(conn, chunk)
 		duration := time.Since(start)
 
 		result := ChunkResult{
@@ -85,45 +94,33 @@ func (wp *WorkerPool) worker(workerID int, chunkChan <-chan CSVChunk, resultChan
 		}
 	}
 
-	fmt.Printf("🏁 Worker %d finished\n", workerID)
+	fmt.Printf("🏁 pgx Worker %d finished\n", workerID)
 }
 
-func (wp *WorkerPool) processChunk(chunk CSVChunk) (int, error) {
-	tx, err := wp.db.Begin()
-	if err != nil {
-		return 0, fmt.Errorf("cannot start transaction: %v", err)
-	}
-	defer tx.Rollback()
-
-	stmt, err := tx.Prepare(pq.CopyIn(wp.tableName, wp.headers...))
-	if err != nil {
-		return 0, fmt.Errorf("cannot prepare COPY: %v", err)
-	}
-
-	for _, record := range chunk.Lines {
-		values := make([]any, len(record))
-		for i, v := range record {
-			values[i] = v
+func (wp *WorkerPool) processChunk(conn *pgx.Conn, chunk CSVChunk) (int, error) {
+	rows := make([][]any, len(chunk.Lines))
+	for i, record := range chunk.Lines {
+		row := make([]any, len(record))
+		for j, v := range record {
+			row[j] = v
 		}
-
-		if _, err := stmt.Exec(values...); err != nil {
-			return 0, fmt.Errorf("COPY error: %v", err)
-		}
+		rows[i] = row
 	}
 
-	if _, err := stmt.Exec(); err != nil {
-		return 0, fmt.Errorf("cannot finalize COPY: %v", err)
+	rowsAffected, err := conn.CopyFrom(
+		context.Background(),
+		pgx.Identifier{wp.tableName},
+		wp.headers,
+		pgx.CopyFromSlice(len(rows), func(i int) ([]any, error) {
+			return rows[i], nil
+		}),
+	)
+
+	if err != nil {
+		return 0, fmt.Errorf("pgx copy from failed: %w", err)
 	}
 
-	if err := stmt.Close(); err != nil {
-		return 0, fmt.Errorf("cannot close COPY: %v", err)
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("cannot commit transaction: %v", err)
-	}
-
-	return len(chunk.Lines), nil
+	return int(rowsAffected), nil
 }
 
 func (wp *WorkerPool) collectResults(resultChan <-chan ChunkResult) (int, error) {
@@ -137,7 +134,7 @@ func (wp *WorkerPool) collectResults(resultChan <-chan ChunkResult) (int, error)
 		totalLines += result.LineCount
 		linesPerSec := float64(result.LineCount) / result.Duration.Seconds()
 
-		fmt.Printf("📊 Chunk %d: %d lines (%.0f lines/sec)\n",
+		fmt.Printf("📊 Chunk %d: %d lines (%.0f lines/sec) [pgx]\n",
 			result.ChunkID, result.LineCount, linesPerSec)
 	}
 

@@ -15,7 +15,7 @@ func ProcessCSVParallel(db *sql.DB, csvPath, tableName string) error {
 	numWorkers := 5
 	chunkSize := 200000
 
-	fmt.Printf("🚀 Starting PARALLEL import with %d workers\n", numWorkers)
+	fmt.Printf("🚀 Starting PARALLEL import with %d workers (pgx)\n", numWorkers)
 
 	file, err := os.Open(csvPath)
 	if err != nil {
@@ -49,7 +49,7 @@ func ProcessCSVParallel(db *sql.DB, csvPath, tableName string) error {
 		return fmt.Errorf("error creating table: %v", err)
 	}
 
-	totalLines, err := processFileParallel(db, csvPath, tableName, cleanHeaders, numWorkers, chunkSize)
+	totalLines, err := processFileParallel(csvPath, tableName, cleanHeaders, numWorkers, chunkSize)
 	if err != nil {
 		return err
 	}
@@ -57,18 +57,18 @@ func ProcessCSVParallel(db *sql.DB, csvPath, tableName string) error {
 	elapsed := time.Since(start)
 	linesPerSec := float64(totalLines) / elapsed.Seconds()
 
-	fmt.Printf("🎉 PARALLEL IMPORT: %d lines in %.2f sec (%.0f lines/sec)\n",
+	fmt.Printf("🎉 PARALLEL IMPORT (pgx): %d lines in %.2f sec (%.0f lines/sec)\n",
 		totalLines, elapsed.Seconds(), linesPerSec)
 
 	return nil
 }
 
-func processFileParallel(db *sql.DB, csvPath, tableName string, headers []string, numWorkers, chunkSize int) (int, error) {
+func processFileParallel(csvPath, tableName string, headers []string, numWorkers, chunkSize int) (int, error) {
 	chunks, err := CreateChunks(csvPath, chunkSize)
 	if err != nil {
 		return 0, err
 	}
 
-	pool := NewWorkerPool(db, tableName, headers, numWorkers)
+	pool := NewWorkerPool(tableName, headers, numWorkers)
 	return pool.ProcessChunks(chunks)
 }

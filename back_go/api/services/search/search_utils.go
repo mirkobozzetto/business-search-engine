@@ -1,25 +1,25 @@
-package utils
+package search
 
 import (
 	"fmt"
 	"strings"
 )
 
-type SearchBuilder struct {
-	columns []string
-	args    []any
+type searchBuilder struct {
+	columns    []string
+	args       []any
 	conditions []string
 }
 
-func NewSearchBuilder(columns []string) *SearchBuilder {
-	return &SearchBuilder{
-		columns: columns,
-		args:    make([]any, 0),
+func newSearchBuilder(columns []string) *searchBuilder {
+	return &searchBuilder{
+		columns:    columns,
+		args:       make([]any, 0),
 		conditions: make([]string, 0),
 	}
 }
 
-func (sb *SearchBuilder) BuildMultiWordSearch(searchValue string) (string, []any) {
+func (sb *searchBuilder) buildMultiWordSearch(searchValue string) (string, []any) {
 	if searchValue == "" {
 		return "", sb.args
 	}
@@ -55,9 +55,9 @@ func (sb *SearchBuilder) BuildMultiWordSearch(searchValue string) (string, []any
 	return whereClause, sb.args
 }
 
-func BuildNaceCodeQuery(searchValue string, limit int) (string, []any) {
+func buildNaceCodeQuery(searchValue string, limit int) (string, []any) {
 	columns := []string{"activités", "libellé_fr", "omschrijving_nl"}
-	builder := NewSearchBuilder(columns)
+	builder := newSearchBuilder(columns)
 
 	selectClause := "SELECT nacecode, activités, libellé_fr, omschrijving_nl FROM nacecode"
 
@@ -68,7 +68,7 @@ func BuildNaceCodeQuery(searchValue string, limit int) (string, []any) {
 		return fmt.Sprintf("%s ORDER BY nacecode", selectClause), []any{}
 	}
 
-	whereClause, args := builder.BuildMultiWordSearch(searchValue)
+	whereClause, args := builder.buildMultiWordSearch(searchValue)
 
 	if limit > 0 {
 		args = append(args, limit)
@@ -79,7 +79,7 @@ func BuildNaceCodeQuery(searchValue string, limit int) (string, []any) {
 	return fmt.Sprintf("%s WHERE %s ORDER BY nacecode", selectClause, whereClause), args
 }
 
-func ParseOptionalLimit(limitStr string, defaultLimit int) int {
+func parseOptionalLimit(limitStr string, defaultLimit int) int {
 	if limitStr == "" {
 		return defaultLimit
 	}

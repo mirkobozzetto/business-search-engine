@@ -1,24 +1,35 @@
-package services
+package data
 
 import (
+	"context"
 	"csv-importer/api/helpers"
 	"csv-importer/api/helpers/utils"
 	"csv-importer/api/models"
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"os"
 )
 
-type DataService struct {
+type dataService struct {
 	db *sql.DB
 }
 
-func NewDataService(db *sql.DB) *DataService {
-	return &DataService{db: db}
+// NewDataService creates a new DataService implementation
+func NewDataService(db *sql.DB) DataService {
+	if db == nil {
+		slog.Error("database connection is nil")
+		os.Exit(1)
+	}
+
+	return &dataService{
+		db: db,
+	}
 }
 
-func (s *DataService) PreviewTable(tableName string, limit int) (*models.PreviewData, error) {
+func (s *dataService) PreviewTable(ctx context.Context, tableName string, limit int) (*models.PreviewData, error) {
 	if err := helpers.ValidateTableName(tableName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid table name: %w", err)
 	}
 
 	if limit <= 0 || limit > 100 {
@@ -27,15 +38,16 @@ func (s *DataService) PreviewTable(tableName string, limit int) (*models.Preview
 
 	builder := &utils.QueryBuilder{}
 	builder.SetLimit(limit)
+
 	rows, err := helpers.SafeQueryWithBuilder(s.db, tableName, nil, builder)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %v", err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	defer rows.Close()
 
 	data, columns, err := utils.ScanRowsToMapsWithColumns(rows)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scan error: %w", err)
 	}
 
 	return &models.PreviewData{
@@ -49,13 +61,13 @@ func (s *DataService) PreviewTable(tableName string, limit int) (*models.Preview
 	}, nil
 }
 
-func (s *DataService) GetColumnValues(tableName, columnName string, limit int) (*models.ColumnValues, error) {
+func (s *dataService) GetColumnValues(ctx context.Context, tableName, columnName string, limit int) (*models.ColumnValues, error) {
 	if err := helpers.ValidateTableName(tableName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid table name: %w", err)
 	}
 
 	if err := helpers.ValidateColumnExists(s.db, tableName, columnName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid column: %w", err)
 	}
 
 	if limit <= 0 || limit > 1000 {
@@ -66,13 +78,13 @@ func (s *DataService) GetColumnValues(tableName, columnName string, limit int) (
 
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %v", err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	defer rows.Close()
 
 	values, err := utils.ScanColumnValues(rows)
 	if err != nil {
-		return nil, fmt.Errorf("scan error: %v", err)
+		return nil, fmt.Errorf("scan error: %w", err)
 	}
 
 	return &models.ColumnValues{

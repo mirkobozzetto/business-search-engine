@@ -1,32 +1,43 @@
-package services
+package search
 
 import (
+	"context"
 	"csv-importer/api/helpers"
+	helperutils "csv-importer/api/helpers/utils"
 	"csv-importer/api/models"
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 )
 
-type SearchService struct {
+type searchService struct {
 	db *sql.DB
 }
 
-func NewSearchService(db *sql.DB) *SearchService {
-	return &SearchService{db: db}
+func NewSearchService(db *sql.DB) SearchService {
+	if db == nil {
+		slog.Error("database connection is nil")
+		os.Exit(1)
+	}
+
+	return &searchService{
+		db: db,
+	}
 }
 
-func (s *SearchService) SearchInColumn(tableName, columnName, searchValue string, limit int) (*models.SearchResult, error) {
+func (s *searchService) SearchInColumn(ctx context.Context, tableName, columnName, searchValue string, limit int) (*models.SearchResult, error) {
 	if searchValue == "" {
 		return nil, fmt.Errorf("search query cannot be empty")
 	}
 
 	if err := helpers.ValidateTableName(tableName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid table name: %w", err)
 	}
 
 	if err := helpers.ValidateColumnExists(s.db, tableName, columnName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid column: %w", err)
 	}
 
 	if limit <= 0 || limit > 1000 {
@@ -43,7 +54,7 @@ func (s *SearchService) SearchInColumn(tableName, columnName, searchValue string
 
 	rows, err := s.db.Query(query, "%"+searchValue+"%", limit)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %v", err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	defer rows.Close()
 
@@ -70,17 +81,17 @@ func (s *SearchService) SearchInColumn(tableName, columnName, searchValue string
 	}, nil
 }
 
-func (s *SearchService) CountMatches(tableName, columnName, searchValue string) (*models.CountResult, error) {
+func (s *searchService) CountMatches(ctx context.Context, tableName, columnName, searchValue string) (*models.CountResult, error) {
 	if searchValue == "" {
 		return nil, fmt.Errorf("search query cannot be empty")
 	}
 
 	if err := helpers.ValidateTableName(tableName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid table name: %w", err)
 	}
 
 	if err := helpers.ValidateColumnExists(s.db, tableName, columnName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid column: %w", err)
 	}
 
 	query := fmt.Sprintf(`
@@ -92,7 +103,7 @@ func (s *SearchService) CountMatches(tableName, columnName, searchValue string) 
 	var count int64
 	err := s.db.QueryRow(query, "%"+searchValue+"%").Scan(&count)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %v", err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 
 	return &models.CountResult{
@@ -103,18 +114,18 @@ func (s *SearchService) CountMatches(tableName, columnName, searchValue string) 
 	}, nil
 }
 
-func (s *SearchService) SearchMultipleColumns(tableName string, columns []string, searchValue string, limit int) (*models.SearchResult, error) {
+func (s *searchService) SearchMultipleColumns(ctx context.Context, tableName string, columns []string, searchValue string, limit int) (*models.SearchResult, error) {
 	if searchValue == "" {
 		return nil, fmt.Errorf("search query cannot be empty")
 	}
 
 	if err := helpers.ValidateTableName(tableName); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("invalid table name: %w", err)
 	}
 
 	for _, col := range columns {
 		if err := helpers.ValidateColumnExists(s.db, tableName, col); err != nil {
-			return nil, fmt.Errorf("invalid column %s: %v", col, err)
+			return nil, fmt.Errorf("invalid column %s: %w", col, err)
 		}
 	}
 
@@ -137,7 +148,7 @@ func (s *SearchService) SearchMultipleColumns(tableName string, columns []string
 
 	rows, err := s.db.Query(query, "%"+searchValue+"%", limit)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %v", err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	defer rows.Close()
 
@@ -172,6 +183,32 @@ func (s *SearchService) SearchMultipleColumns(tableName string, columns []string
 		Meta: models.Meta{
 			Count: len(results),
 			Limit: limit,
+		},
+	}, nil
+}
+
+func (s *searchService) SearchNaceCode(ctx context.Context, searchValue string, limit int) (*models.NaceSearchResult, error) {
+	query, args := buildNaceCodeQuery(searchValue, limit)
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("database error: %w", err)
+	}
+	defer rows.Close()
+
+	columns := []string{"nacecode", "activités", "libellé_fr", "omschrijving_nl"}
+	data, err := helperutils.ScanRowsToMaps(rows, columns)
+	if err != nil {
+		return nil, fmt.Errorf("scan error: %w", err)
+	}
+
+	return &models.NaceSearchResult{
+		Query:   searchValue,
+		Results: data,
+		Meta: models.Meta{
+			Count: len(data),
+			Limit: limit,
+			Total: len(data),
 		},
 	}, nil
 }

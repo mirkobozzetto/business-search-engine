@@ -1,31 +1,43 @@
 package api
 
 import (
-	datahandlers "csv-importer/api/data/handlers"
-	exporthandlers "csv-importer/api/export/handlers"
 	"csv-importer/api/middleware"
-	searchhandlers "csv-importer/api/search/handlers"
-	tableshandlers "csv-importer/api/tables/handlers"
+	"csv-importer/api/services/data"
+	"csv-importer/api/services/export"
+	"csv-importer/api/services/search"
+	"csv-importer/api/services/tables"
 	"csv-importer/config"
 	"csv-importer/database"
 	"database/sql"
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/lmittmann/tint"
 )
 
 type Server struct {
 	db     *sql.DB
 	router *gin.Engine
 	logger *slog.Logger
+
+	dataHandler   *data.Handler
+	searchHandler *search.Handler
+	tableHandler  *tables.Handler
+	exportHandler *export.Handler
+}
+
+func createLogger() *slog.Logger {
+	handler := tint.NewHandler(os.Stdout, &tint.Options{
+		Level:      slog.LevelInfo,
+		TimeFormat: time.Kitchen,
+	})
+	return slog.New(handler)
 }
 
 func NewServer(db *sql.DB) *Server {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-		AddSource: true,
-	}))
+	logger := createLogger()
 
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
@@ -43,11 +55,28 @@ func NewServer(db *sql.DB) *Server {
 
 	router.Use(middleware.ResponseMiddleware())
 
+	dataService := data.NewDataService(db)
+	dataHandler := data.NewHandler(dataService)
+
+	searchService := search.NewSearchService(db)
+	searchHandler := search.NewHandler(searchService)
+
+	tableService := tables.NewTableService(db)
+	tableHandler := tables.NewHandler(tableService)
+
+	exportService := export.NewExportService(db)
+	exportHandler := export.NewHandler(exportService)
+
 	server := &Server{
-		db:     db,
-		router: router,
-		logger: logger,
+		db:            db,
+		router:        router,
+		logger:        logger,
+		dataHandler:   dataHandler,
+		searchHandler: searchHandler,
+		tableHandler:  tableHandler,
+		exportHandler: exportHandler,
 	}
+
 	server.setupRoutes()
 	return server
 }
@@ -62,12 +91,12 @@ func (s *Server) setupRoutes() {
 
 	tablesGroup := api.Group("/tables")
 	{
-		tablesGroup.GET("", tableshandlers.ListTables(s.db))
-		tablesGroup.GET("/structure", tableshandlers.GetCompleteStructure(s.db))
+		tablesGroup.GET("", s.tableHandler.ListTables())
+		tablesGroup.GET("/structure", s.tableHandler.GetCompleteStructure())
 
 		tablesGroup.Use(middleware.ValidateTableName())
-		tablesGroup.GET("/:name/info", tableshandlers.GetTableInfo(s.db))
-		tablesGroup.GET("/:name/columns", tableshandlers.GetTableColumns(s.db))
+		tablesGroup.GET("/:name/info", s.tableHandler.GetTableInfo())
+		tablesGroup.GET("/:name/columns", s.tableHandler.GetTableColumns())
 	}
 
 	dataGroup := api.Group("/data")
@@ -75,28 +104,33 @@ func (s *Server) setupRoutes() {
 	{
 		dataGroup.GET("/:table/preview",
 			middleware.ParseLimitParam(5, 100),
-			datahandlers.PreviewTable(s.db),
+			s.dataHandler.PreviewTable(),
 		)
 
 		dataGroup.Use(middleware.ValidateColumnName(s.db))
 		dataGroup.GET("/:table/values/:column",
 			middleware.ParseLimitParam(20, 1000),
-			datahandlers.GetColumnValues(s.db),
+			s.dataHandler.GetColumnValues(),
 		)
 	}
 
 	searchGroup := api.Group("/search")
 	searchGroup.Use(middleware.ValidateTableName())
-	searchGroup.Use(middleware.ValidateColumnName(s.db))
 	{
 		searchGroup.GET("/:table/:column",
 			middleware.ValidateSearchQuery(),
 			middleware.ParseLimitParam(50, 1000),
-			searchhandlers.SearchTable(s.db),
+			s.searchHandler.SearchTable(),
+		)
+
+		searchGroup.GET("/:table/multi",
+			middleware.ValidateSearchQuery(),
+			middleware.ParseLimitParam(50, 1000),
+			s.searchHandler.SearchMultipleColumns(),
 		)
 	}
 
-	api.GET("/search/nacecode", searchhandlers.SearchNaceCode(s.db))
+	api.GET("/search/nacecode", s.searchHandler.SearchNaceCode())
 
 	countGroup := api.Group("/count")
 	countGroup.Use(middleware.ValidateTableName())
@@ -104,7 +138,7 @@ func (s *Server) setupRoutes() {
 	{
 		countGroup.GET("/:table/:column",
 			middleware.ValidateSearchQuery(),
-			searchhandlers.CountRows(s.db),
+			s.searchHandler.CountRows(),
 		)
 	}
 
@@ -114,7 +148,7 @@ func (s *Server) setupRoutes() {
 		exportGroup.GET("/:table",
 			middleware.ParseLimitParam(10000, 100000),
 			middleware.ParseFormatParam(),
-			exporthandlers.ExportData(s.db),
+			s.exportHandler.ExportData(),
 		)
 	}
 }
@@ -122,28 +156,31 @@ func (s *Server) setupRoutes() {
 
 
 func (s *Server) Start(port string) error {
-	s.logger.Info("API Server starting",
+	s.logger.Info("🚀 API Server starting",
 		slog.String("port", port),
-		slog.String("health_endpoint", "http://localhost"+port+"/api/health"),
-		slog.String("tables_structure", "http://localhost"+port+"/api/tables/structure"),
-		slog.String("nace_search", "http://localhost"+port+"/api/search/nacecode"),
+	)
+	s.logger.Info("📡 Health endpoint",
+		slog.String("url", "http://localhost"+port+"/api/health"),
+	)
+	s.logger.Info("📊 Tables structure",
+		slog.String("url", "http://localhost"+port+"/api/tables/structure"),
+	)
+	s.logger.Info("🔍 NACE search",
+		slog.String("url", "http://localhost"+port+"/api/search/nacecode"),
 	)
 
 	return s.router.Run(port)
 }
 
 func StartAPIServer() {
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-		AddSource: true,
-	}))
+	logger := createLogger()
 	slog.SetDefault(logger)
 
 	cfg := config.Load()
 
 	db, err := database.Connect(cfg)
 	if err != nil {
-		slog.Error("Database connection failed",
+		slog.Error("❌ Database connection failed",
 			slog.String("error", err.Error()),
 		)
 		os.Exit(1)
@@ -158,7 +195,7 @@ func StartAPIServer() {
 
 	server := NewServer(db)
 	if err := server.Start(":8080"); err != nil {
-		slog.Error("Server failed to start",
+		slog.Error("❌ Server failed to start",
 			slog.String("error", err.Error()),
 		)
 		os.Exit(1)
