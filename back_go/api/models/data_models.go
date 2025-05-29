@@ -18,3 +18,9 @@ type ColumnValues struct {
 	Values []ColumnValue `json:"values"`
 	Meta   Meta          `json:"meta"`
 }
+
+type NaceSearchResult struct {
+	Query   string              `json:"query"`
+	Results []map[string]any    `json:"results"`
+	Meta    Meta                `json:"meta"`
+}
