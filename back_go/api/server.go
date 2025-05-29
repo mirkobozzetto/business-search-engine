@@ -18,13 +18,18 @@ import (
 type Server struct {
 	db     *sql.DB
 	router *gin.Engine
+	logger *slog.Logger
 }
 
 func NewServer(db *sql.DB) *Server {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+		AddSource: true,
+	}))
+
 	gin.SetMode(gin.ReleaseMode)
 	router := gin.Default()
 
-	// Global middlewares
 	router.Use(func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
 		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
@@ -38,7 +43,11 @@ func NewServer(db *sql.DB) *Server {
 
 	router.Use(middleware.ResponseMiddleware())
 
-	server := &Server{db: db, router: router}
+	server := &Server{
+		db:     db,
+		router: router,
+		logger: logger,
+	}
 	server.setupRoutes()
 	return server
 }
@@ -51,19 +60,16 @@ func (s *Server) setupRoutes() {
 		responseHelper.Success(gin.H{"status": "ok", "message": "CSV Importer API"})
 	})
 
-	// Tables routes with middleware validation
 	tablesGroup := api.Group("/tables")
 	{
 		tablesGroup.GET("", tableshandlers.ListTables(s.db))
 		tablesGroup.GET("/structure", tableshandlers.GetCompleteStructure(s.db))
 
-		// Routes requiring table validation
 		tablesGroup.Use(middleware.ValidateTableName())
 		tablesGroup.GET("/:name/info", tableshandlers.GetTableInfo(s.db))
 		tablesGroup.GET("/:name/columns", tableshandlers.GetTableColumns(s.db))
 	}
 
-	// Data routes with middleware
 	dataGroup := api.Group("/data")
 	dataGroup.Use(middleware.ValidateTableName())
 	{
@@ -79,7 +85,6 @@ func (s *Server) setupRoutes() {
 		)
 	}
 
-	// Search routes with validation middleware
 	searchGroup := api.Group("/search")
 	searchGroup.Use(middleware.ValidateTableName())
 	searchGroup.Use(middleware.ValidateColumnName(s.db))
@@ -91,10 +96,8 @@ func (s *Server) setupRoutes() {
 		)
 	}
 
-	// Route spéciale pour nacecode
 	api.GET("/search/nacecode", searchhandlers.SearchNaceCode(s.db))
 
-	// Count routes
 	countGroup := api.Group("/count")
 	countGroup.Use(middleware.ValidateTableName())
 	countGroup.Use(middleware.ValidateColumnName(s.db))
@@ -105,7 +108,6 @@ func (s *Server) setupRoutes() {
 		)
 	}
 
-	// Export routes with enhanced middleware
 	exportGroup := api.Group("/export")
 	exportGroup.Use(middleware.ValidateTableName())
 	{
@@ -117,26 +119,48 @@ func (s *Server) setupRoutes() {
 	}
 }
 
+
+
 func (s *Server) Start(port string) error {
-	slog.Info("🚀 API Server starting", "port", port)
-	slog.Info("📡 Health endpoint", "url", "http://localhost"+port+"/api/health")
-	slog.Info("📊 Tables Structure endpoint", "url", "http://localhost"+port+"/api/tables/structure")
-	slog.Info("🔍 NACE Search endpoint", "url", "http://localhost"+port+"/api/search/nacecode")
+	s.logger.Info("API Server starting",
+		slog.String("port", port),
+		slog.String("health_endpoint", "http://localhost"+port+"/api/health"),
+		slog.String("tables_structure", "http://localhost"+port+"/api/tables/structure"),
+		slog.String("nace_search", "http://localhost"+port+"/api/search/nacecode"),
+	)
+
 	return s.router.Run(port)
 }
 
 func StartAPIServer() {
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+		AddSource: true,
+	}))
+	slog.SetDefault(logger)
+
 	cfg := config.Load()
+
 	db, err := database.Connect(cfg)
 	if err != nil {
-		slog.Error("❌ Database connection failed", "error", err)
+		slog.Error("Database connection failed",
+			slog.String("error", err.Error()),
+		)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			slog.Error("Failed to close database connection",
+				slog.String("error", err.Error()),
+			)
+		}
+	}()
 
 	server := NewServer(db)
 	if err := server.Start(":8080"); err != nil {
-		slog.Error("❌ Server failed to start", "error", err)
+		slog.Error("Server failed to start",
+			slog.String("error", err.Error()),
+		)
 		os.Exit(1)
 	}
 }
