@@ -1,39 +1,34 @@
-package services
+package export
 
 import (
+	"context"
 	"csv-importer/api/helpers"
 	"csv-importer/api/models"
 	"database/sql"
 	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 )
 
-type ExportService struct {
+type exportService struct {
 	db *sql.DB
 }
 
-type ExportOptions struct {
-	TableName   string
-	ColumnName  string
-	SearchValue string
-	Limit       int
-	Format      string
+func NewExportService(db *sql.DB) ExportService {
+	if db == nil {
+		slog.Error("database connection is nil")
+		os.Exit(1)
+	}
+
+	return &exportService{
+		db: db,
+	}
 }
 
-type ExportResult struct {
-	Data     []map[string]any `json:"data,omitempty"`
-	Columns  []string         `json:"columns"`
-	RowCount int              `json:"row_count"`
-	Meta     models.Meta      `json:"meta"`
-}
-
-func NewExportService(db *sql.DB) *ExportService {
-	return &ExportService{db: db}
-}
-
-func (s *ExportService) ValidateExportOptions(opts ExportOptions) error {
+func (s *exportService) ValidateExportOptions(opts ExportOptions) error {
 	if err := helpers.ValidateTableName(opts.TableName); err != nil {
-		return err
+		return fmt.Errorf("invalid table name: %w", err)
 	}
 
 	if opts.Limit <= 0 || opts.Limit > 100000 {
@@ -42,7 +37,7 @@ func (s *ExportService) ValidateExportOptions(opts ExportOptions) error {
 
 	if opts.ColumnName != "" {
 		if err := helpers.ValidateColumnExists(s.db, opts.TableName, opts.ColumnName); err != nil {
-			return err
+			return fmt.Errorf("invalid column: %w", err)
 		}
 	}
 
@@ -53,7 +48,7 @@ func (s *ExportService) ValidateExportOptions(opts ExportOptions) error {
 	return nil
 }
 
-func (s *ExportService) GetTableColumns(tableName string) ([]string, error) {
+func (s *exportService) getTableColumns(tableName string) ([]string, error) {
 	query := `
 		SELECT column_name
 		FROM information_schema.columns
@@ -62,7 +57,7 @@ func (s *ExportService) GetTableColumns(tableName string) ([]string, error) {
 	`
 	rows, err := s.db.Query(query, tableName)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get table columns: %v", err)
+		return nil, fmt.Errorf("failed to get table columns: %w", err)
 	}
 	defer rows.Close()
 
@@ -82,7 +77,7 @@ func (s *ExportService) GetTableColumns(tableName string) ([]string, error) {
 	return columns, nil
 }
 
-func (s *ExportService) BuildExportQuery(opts ExportOptions, columns []string) (string, []any) {
+func (s *exportService) buildExportQuery(opts ExportOptions, columns []string) (string, []any) {
 	var query string
 	var args []any
 
@@ -106,10 +101,10 @@ func (s *ExportService) BuildExportQuery(opts ExportOptions, columns []string) (
 	return query, args
 }
 
-func (s *ExportService) ExecuteExportQuery(query string, args []any, columns []string) (*ExportResult, error) {
+func (s *exportService) executeExportQuery(query string, args []any, columns []string, limit int) (*ExportResult, error) {
 	rows, err := s.db.Query(query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("database error: %v", err)
+		return nil, fmt.Errorf("database error: %w", err)
 	}
 	defer rows.Close()
 
@@ -145,27 +140,27 @@ func (s *ExportService) ExecuteExportQuery(query string, args []any, columns []s
 		RowCount: rowCount,
 		Meta: models.Meta{
 			Count: rowCount,
-			Limit: len(args) - 1, // Last arg is usually limit
+			Limit: limit,
 		},
 	}, nil
 }
 
-func (s *ExportService) PrepareExportData(opts ExportOptions) (*ExportResult, error) {
+func (s *exportService) PrepareExportData(ctx context.Context, opts ExportOptions) (*ExportResult, error) {
 	if err := s.ValidateExportOptions(opts); err != nil {
 		return nil, err
 	}
 
-	columns, err := s.GetTableColumns(opts.TableName)
+	columns, err := s.getTableColumns(opts.TableName)
 	if err != nil {
 		return nil, err
 	}
 
-	query, args := s.BuildExportQuery(opts, columns)
+	query, args := s.buildExportQuery(opts, columns)
 
-	return s.ExecuteExportQuery(query, args, columns)
+	return s.executeExportQuery(query, args, columns, opts.Limit)
 }
 
-func (s *ExportService) GenerateFilename(opts ExportOptions) string {
+func (s *exportService) GenerateFilename(opts ExportOptions) string {
 	if opts.SearchValue != "" {
 		return fmt.Sprintf("%s_%s_export", opts.TableName, opts.SearchValue)
 	}
