@@ -7,4 +7,5 @@ import (
 
 type CompanyService interface {
 	SearchByNaceCode(ctx context.Context, naceCode string, limit int) (*models.CompanySearchResult, error)
+	SearchByDenomination(ctx context.Context, query string, limit int) (*models.CompanySearchResult, error)
 }

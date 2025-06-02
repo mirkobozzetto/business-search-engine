@@ -54,3 +54,34 @@ func (h *Handler) SearchByNaceCode() gin.HandlerFunc {
 		c.JSON(200, models.Success(result))
 	}
 }
+
+func (h *Handler) SearchByDenomination() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		query := c.Query("q")
+		limitStr := c.DefaultQuery("limit", "50")
+
+		if query == "" {
+			c.JSON(400, models.Error("denomination query parameter 'q' is required"))
+			return
+		}
+
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 || limit > 1000 {
+			c.JSON(400, models.Error("invalid limit parameter"))
+			return
+		}
+
+		result, err := h.companyService.SearchByDenomination(c.Request.Context(), query, limit)
+		if err != nil {
+			slog.Error("failed to search by denomination",
+				"query", query,
+				"limit", limit,
+				"error", err.Error(),
+			)
+			c.JSON(500, models.Error("search failed: "+err.Error()))
+			return
+		}
+
+		c.JSON(200, models.Success(result))
+	}
+}

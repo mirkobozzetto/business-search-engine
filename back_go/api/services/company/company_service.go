@@ -399,6 +399,118 @@ func (s *companyService) enrichTableData(companyMap map[string]*models.CompanyRe
 	slog.Info("Enriched table data", "table", tableName, "total_rows", totalRows)
 }
 
+func (s *companyService) SearchByDenomination(ctx context.Context, query string, limit int) (*models.CompanySearchResult, error) {
+	if query == "" {
+		return nil, fmt.Errorf("denomination query cannot be empty")
+	}
+
+	if limit <= 0 {
+		limit = 50
+	}
+
+	cacheKey := fmt.Sprintf("companies:full:denomination:%s", query)
+
+	start := time.Now()
+	var allCompanies []models.CompanyResult
+	err := s.cache.Get(cacheKey, &allCompanies)
+	cacheDuration := time.Since(start)
+
+	if err != nil {
+		slog.Info("Cache miss, fetching by denomination from database",
+			"query", query,
+			"cache_duration_ms", cacheDuration.Milliseconds())
+
+		entityNumbers, err := s.getAllEntityNumbersByDenomination(query)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(entityNumbers) == 0 {
+			return &models.CompanySearchResult{
+				Criteria: models.CompanySearchCriteria{},
+				Results:  []models.CompanyResult{},
+				Meta:     models.Meta{Count: 0, Total: 0, Limit: limit},
+			}, nil
+		}
+
+		if len(entityNumbers) > MAX_COMPANIES {
+			slog.Warn("Dataset too large, truncating",
+				"query", query,
+				"original_count", len(entityNumbers),
+				"truncated_to", MAX_COMPANIES)
+			entityNumbers = entityNumbers[:MAX_COMPANIES]
+		}
+
+		allCompanies, err = s.enrichCompleteCompanyData(entityNumbers, "")
+		if err != nil {
+			return nil, err
+		}
+
+		dataSize := len(allCompanies)
+		estimatedSizeMB := dataSize * 2000 / 1024 / 1024
+
+		err = s.cache.Set(cacheKey, allCompanies, 24*time.Hour)
+		if err != nil {
+			slog.Error("Cache write failed",
+				"query", query,
+				"companies_count", dataSize,
+				"estimated_size_mb", estimatedSizeMB,
+				"error", err.Error())
+		} else {
+			slog.Info("Cached complete company dataset",
+				"query", query,
+				"total", len(allCompanies),
+				"estimated_size_mb", estimatedSizeMB)
+		}
+	} else {
+		slog.Info("Cache hit for complete dataset",
+			"query", query,
+			"total", len(allCompanies),
+			"cache_duration_ms", cacheDuration.Milliseconds())
+	}
+
+	total := len(allCompanies)
+	var results []models.CompanyResult
+
+	if limit > total {
+		results = allCompanies
+	} else {
+		results = allCompanies[:limit]
+	}
+
+	return &models.CompanySearchResult{
+		Criteria: models.CompanySearchCriteria{},
+		Results:  results,
+		Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
+	}, nil
+}
+
+func (s *companyService) getAllEntityNumbersByDenomination(query string) ([]string, error) {
+	querySQL := `
+		SELECT DISTINCT entitynumber
+		FROM denomination
+		WHERE denomination ILIKE $1
+		ORDER BY entitynumber
+	`
+
+	rows, err := s.db.Query(querySQL, "%"+query+"%")
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entity numbers by denomination: %w", err)
+	}
+	defer rows.Close()
+
+	var entityNumbers []string
+	for rows.Next() {
+		var entityNumber string
+		if err := rows.Scan(&entityNumber); err == nil {
+			entityNumbers = append(entityNumbers, entityNumber)
+		}
+	}
+
+	slog.Info("Found entity numbers by denomination", "query", query, "count", len(entityNumbers))
+	return entityNumbers, nil
+}
+
 func (s *companyService) setLegacyFields(company *models.CompanyResult) {
 	if company.Enterprise != nil {
 		if jf, ok := company.Enterprise["juridical_form"].(string); ok {
