@@ -152,7 +152,7 @@ func (s *companyService) enrichCompanyData(entityNumbers []string, naceCode stri
 
 func (s *companyService) enrichBatch(entityNumbers []string, naceCode string) ([]models.CompanyResult, error) {
 	placeholders := make([]string, len(entityNumbers))
-	args := make([]any, len(entityNumbers))
+	args := make([]interface{}, len(entityNumbers))
 	for i, entityNumber := range entityNumbers {
 		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		args[i] = entityNumber
@@ -234,7 +234,7 @@ func (s *companyService) enrichContactDataForAll(companies []models.CompanyResul
 
 func (s *companyService) enrichContactBatch(entityNumbers []string, companyMap map[string]*models.CompanyResult) {
 	placeholders := make([]string, len(entityNumbers))
-	args := make([]any, len(entityNumbers))
+	args := make([]interface{}, len(entityNumbers))
 	for i, entityNumber := range entityNumbers {
 		placeholders[i] = fmt.Sprintf("$%d", i+1)
 		args[i] = entityNumber
