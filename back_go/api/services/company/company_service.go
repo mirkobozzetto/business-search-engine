@@ -152,7 +152,7 @@ func (s *companyService) SearchByDenomination(ctx context.Context, query string,
 
 		if len(entityNumbers) == 0 {
 			return &models.CompanySearchResult{
-				Criteria: models.CompanySearchCriteria{},
+				Criteria: models.CompanySearchCriteria{Denomination: query},
 				Results:  []models.CompanyResult{},
 				Meta:     models.Meta{Count: 0, Total: 0, Limit: limit},
 			}, nil
@@ -204,7 +204,7 @@ func (s *companyService) SearchByDenomination(ctx context.Context, query string,
 	}
 
 	return &models.CompanySearchResult{
-		Criteria: models.CompanySearchCriteria{},
+		Criteria: models.CompanySearchCriteria{Denomination: query},
 		Results:  results,
 		Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
 	}, nil
@@ -294,4 +294,143 @@ func (s *companyService) SearchByZipcode(ctx context.Context, zipcode string, li
 		Results:  results,
 		Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
 	}, nil
+}
+
+func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria models.CompanySearchCriteria, limit int) (*models.CompanySearchResult, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+
+	var allDatasets [][]models.CompanyResult
+	var criteriaCount int
+
+	if criteria.NaceCode != "" {
+		cacheKey := fmt.Sprintf("companies:full:nace:%s", criteria.NaceCode)
+		var companies []models.CompanyResult
+		err := s.cache.Get(cacheKey, &companies)
+		if err != nil {
+			return nil, fmt.Errorf("NACE cache not found: %s. Please search by NACE first", criteria.NaceCode)
+		}
+		allDatasets = append(allDatasets, companies)
+		criteriaCount++
+		slog.Info("Found cached NACE data", "nace_code", criteria.NaceCode, "count", len(companies))
+	}
+
+	if criteria.Denomination != "" {
+		cacheKey := fmt.Sprintf("companies:full:denomination:%s", criteria.Denomination)
+		var companies []models.CompanyResult
+		err := s.cache.Get(cacheKey, &companies)
+		if err != nil {
+			return nil, fmt.Errorf("denomination cache not found: %s. Please search by denomination first", criteria.Denomination)
+		}
+		allDatasets = append(allDatasets, companies)
+		criteriaCount++
+		slog.Info("Found cached denomination data", "denomination", criteria.Denomination, "count", len(companies))
+	}
+
+	if criteria.ZipCode != "" {
+		cacheKey := fmt.Sprintf("companies:full:zipcode:%s", criteria.ZipCode)
+		var companies []models.CompanyResult
+		err := s.cache.Get(cacheKey, &companies)
+		if err != nil {
+			return nil, fmt.Errorf("zipcode cache not found: %s. Please search by zipcode first", criteria.ZipCode)
+		}
+		allDatasets = append(allDatasets, companies)
+		criteriaCount++
+		slog.Info("Found cached zipcode data", "zipcode", criteria.ZipCode, "count", len(companies))
+	}
+
+	if criteriaCount == 0 {
+		return nil, fmt.Errorf("at least one search criteria required")
+	}
+
+	if criteriaCount == 1 {
+		results := allDatasets[0]
+		total := len(results)
+
+		if limit > total {
+			results = results[:total]
+		} else {
+			results = results[:limit]
+		}
+
+		return &models.CompanySearchResult{
+			Criteria: criteria,
+			Results:  results,
+			Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
+		}, nil
+	}
+
+	intersection := s.intersectCompanyResults(allDatasets)
+
+	slog.Info("Multi-criteria intersection",
+		"criteria_count", criteriaCount,
+		"datasets_sizes", fmt.Sprintf("%v", getDatasetSizes(allDatasets)),
+		"intersection_size", len(intersection))
+
+	total := len(intersection)
+	var results []models.CompanyResult
+
+	if limit > total {
+		results = intersection
+	} else {
+		results = intersection[:limit]
+	}
+
+	return &models.CompanySearchResult{
+		Criteria: criteria,
+		Results:  results,
+		Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
+	}, nil
+}
+
+func (s *companyService) intersectCompanyResults(datasets [][]models.CompanyResult) []models.CompanyResult {
+	if len(datasets) == 0 {
+		return []models.CompanyResult{}
+	}
+
+	if len(datasets) == 1 {
+		return datasets[0]
+	}
+
+	smallest := 0
+	for i, dataset := range datasets {
+		if len(dataset) < len(datasets[smallest]) {
+			smallest = i
+		}
+	}
+
+	entityMap := make(map[string]models.CompanyResult)
+	for _, company := range datasets[smallest] {
+		entityMap[company.EntityNumber] = company
+	}
+
+	for i, dataset := range datasets {
+		if i == smallest {
+			continue
+		}
+
+		newEntityMap := make(map[string]models.CompanyResult)
+		for _, company := range dataset {
+			if _, exists := entityMap[company.EntityNumber]; exists {
+				newEntityMap[company.EntityNumber] = company
+			}
+		}
+		entityMap = newEntityMap
+	}
+
+	var result []models.CompanyResult
+	for _, company := range entityMap {
+		result = append(result, company)
+	}
+
+	return result
+}
+
+func getDatasetSizes(datasets [][]models.CompanyResult) []int {
+	sizes := make([]int, len(datasets))
+	for i, dataset := range datasets {
+		sizes[i] = len(dataset)
+	}
+	return sizes
 }

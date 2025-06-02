@@ -163,6 +163,7 @@ func (s *Server) setupRoutes() {
 		companyGroup.GET("/search/nace", s.companyHandler.SearchByNaceCode())
 		companyGroup.GET("/search/denomination", s.companyHandler.SearchByDenomination())
 		companyGroup.GET("/search/zipcode", s.companyHandler.SearchByZipcode())
+		companyGroup.GET("/search/multi", s.companyHandler.SearchMultiCriteria())
 	}
 }
 
@@ -184,6 +185,12 @@ func (s *Server) Start(port string) error {
 	)
 	s.logger.Info("🔍 Company search",
 		slog.String("url", "http://localhost"+port+"/api/companies/search/denomination"),
+	)
+	s.logger.Info("🔍 Company search",
+		slog.String("url", "http://localhost"+port+"/api/companies/search/zipcode"),
+	)
+	s.logger.Info("🔍 Company search",
+		slog.String("url", "http://localhost"+port+"/api/companies/search/multi"),
 	)
 
 	return s.router.Run(port)
