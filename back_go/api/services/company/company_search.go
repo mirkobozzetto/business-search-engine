@@ -56,3 +56,29 @@ func (s *companyService) getAllEntityNumbersByDenomination(query string) ([]stri
 	slog.Info("Found entity numbers by denomination", "query", query, "count", len(entityNumbers))
 	return entityNumbers, nil
 }
+
+func (s *companyService) getAllEntityNumbersByZipcode(zipcode string) ([]string, error) {
+	query := `
+		SELECT DISTINCT entitynumber
+		FROM address
+		WHERE zipcode = $1 AND typeofaddress = 'REGO'
+		ORDER BY entitynumber
+	`
+
+	rows, err := s.db.Query(query, zipcode)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get entity numbers by zipcode: %w", err)
+	}
+	defer rows.Close()
+
+	var entityNumbers []string
+	for rows.Next() {
+		var entityNumber string
+		if err := rows.Scan(&entityNumber); err == nil {
+			entityNumbers = append(entityNumbers, entityNumber)
+		}
+	}
+
+	slog.Info("Found entity numbers by zipcode", "zipcode", zipcode, "count", len(entityNumbers))
+	return entityNumbers, nil
+}

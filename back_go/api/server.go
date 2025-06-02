@@ -162,6 +162,7 @@ func (s *Server) setupRoutes() {
 	{
 		companyGroup.GET("/search/nace", s.companyHandler.SearchByNaceCode())
 		companyGroup.GET("/search/denomination", s.companyHandler.SearchByDenomination())
+		companyGroup.GET("/search/zipcode", s.companyHandler.SearchByZipcode())
 	}
 }
 

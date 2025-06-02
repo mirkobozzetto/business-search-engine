@@ -85,3 +85,34 @@ func (h *Handler) SearchByDenomination() gin.HandlerFunc {
 		c.JSON(200, models.Success(result))
 	}
 }
+
+func (h *Handler) SearchByZipcode() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		zipcode := c.Query("q")
+		limitStr := c.DefaultQuery("limit", "50")
+
+		if zipcode == "" {
+			c.JSON(400, models.Error("zipcode query parameter 'q' is required"))
+			return
+		}
+
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 || limit > 1000 {
+			c.JSON(400, models.Error("invalid limit parameter"))
+			return
+		}
+
+		result, err := h.companyService.SearchByZipcode(c.Request.Context(), zipcode, limit)
+		if err != nil {
+			slog.Error("failed to search by zipcode",
+				"zipcode", zipcode,
+				"limit", limit,
+				"error", err.Error(),
+			)
+			c.JSON(500, models.Error("search failed: "+err.Error()))
+			return
+		}
+
+		c.JSON(200, models.Success(result))
+	}
+}

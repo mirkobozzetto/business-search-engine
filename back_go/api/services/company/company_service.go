@@ -209,3 +209,89 @@ func (s *companyService) SearchByDenomination(ctx context.Context, query string,
 		Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
 	}, nil
 }
+
+func (s *companyService) SearchByZipcode(ctx context.Context, zipcode string, limit int) (*models.CompanySearchResult, error) {
+	if zipcode == "" {
+		return nil, fmt.Errorf("zipcode cannot be empty")
+	}
+
+	if limit <= 0 {
+		limit = 50
+	}
+
+	cacheKey := fmt.Sprintf("companies:full:zipcode:%s", zipcode)
+
+	start := time.Now()
+	var allCompanies []models.CompanyResult
+	err := s.cache.Get(cacheKey, &allCompanies)
+	cacheDuration := time.Since(start)
+
+	if err != nil {
+		slog.Info("Cache miss, fetching by zipcode from database",
+			"zipcode", zipcode,
+			"cache_duration_ms", cacheDuration.Milliseconds())
+
+		entityNumbers, err := s.getAllEntityNumbersByZipcode(zipcode)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(entityNumbers) == 0 {
+			return &models.CompanySearchResult{
+				Criteria: models.CompanySearchCriteria{ZipCode: zipcode},
+				Results:  []models.CompanyResult{},
+				Meta:     models.Meta{Count: 0, Total: 0, Limit: limit},
+			}, nil
+		}
+
+		if len(entityNumbers) > MAX_COMPANIES {
+			slog.Warn("Dataset too large, truncating",
+				"zipcode", zipcode,
+				"original_count", len(entityNumbers),
+				"truncated_to", MAX_COMPANIES)
+			entityNumbers = entityNumbers[:MAX_COMPANIES]
+		}
+
+		allCompanies, err = s.enrichCompleteCompanyData(entityNumbers, "")
+		if err != nil {
+			return nil, err
+		}
+
+		dataSize := len(allCompanies)
+		estimatedSizeMB := dataSize * 2000 / 1024 / 1024
+
+		err = s.cache.Set(cacheKey, allCompanies, 24*time.Hour)
+		if err != nil {
+			slog.Error("Cache write failed",
+				"zipcode", zipcode,
+				"companies_count", dataSize,
+				"estimated_size_mb", estimatedSizeMB,
+				"error", err.Error())
+		} else {
+			slog.Info("Cached complete company dataset",
+				"zipcode", zipcode,
+				"total", len(allCompanies),
+				"estimated_size_mb", estimatedSizeMB)
+		}
+	} else {
+		slog.Info("Cache hit for complete dataset",
+			"zipcode", zipcode,
+			"total", len(allCompanies),
+			"cache_duration_ms", cacheDuration.Milliseconds())
+	}
+
+	total := len(allCompanies)
+	var results []models.CompanyResult
+
+	if limit > total {
+		results = allCompanies
+	} else {
+		results = allCompanies[:limit]
+	}
+
+	return &models.CompanySearchResult{
+		Criteria: models.CompanySearchCriteria{ZipCode: zipcode},
+		Results:  results,
+		Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
+	}, nil
+}
