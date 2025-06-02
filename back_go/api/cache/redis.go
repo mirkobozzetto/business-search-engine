@@ -38,7 +38,7 @@ func (r *RedisCache) Ping() error {
 	return r.client.Ping(r.ctx).Err()
 }
 
-func (r *RedisCache) Set(key string, value interface{}, ttl time.Duration) error {
+func (r *RedisCache) Set(key string, value any, ttl time.Duration) error {
 	jsonData, err := json.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("failed to marshal data: %v", err)
