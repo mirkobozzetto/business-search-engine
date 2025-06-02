@@ -3,6 +3,7 @@ package company
 import (
 	"context"
 	"csv-importer/api/cache"
+	"csv-importer/api/helpers/utils"
 	"csv-importer/api/models"
 	"database/sql"
 	"fmt"
@@ -11,6 +12,8 @@ import (
 	"strings"
 	"time"
 )
+
+const MAX_COMPANIES = 100000
 
 type companyService struct {
 	db    *sql.DB
@@ -45,13 +48,17 @@ func (s *companyService) SearchByNaceCode(ctx context.Context, naceCode string, 
 		limit = 50
 	}
 
-	cacheKey := fmt.Sprintf("companies:nace:%s", naceCode)
+	cacheKey := fmt.Sprintf("companies:full:nace:%s", naceCode)
 
+	start := time.Now()
 	var allCompanies []models.CompanyResult
 	err := s.cache.Get(cacheKey, &allCompanies)
+	cacheDuration := time.Since(start)
 
 	if err != nil {
-		slog.Info("Cache miss, fetching from database", "nace_code", naceCode)
+		slog.Info("Cache miss, fetching complete data from database",
+			"nace_code", naceCode,
+			"cache_duration_ms", cacheDuration.Milliseconds())
 
 		entityNumbers, err := s.getAllEntityNumbersByNace(naceCode)
 		if err != nil {
@@ -66,19 +73,40 @@ func (s *companyService) SearchByNaceCode(ctx context.Context, naceCode string, 
 			}, nil
 		}
 
-		allCompanies, err = s.enrichCompanyData(entityNumbers, naceCode)
+		if len(entityNumbers) > MAX_COMPANIES {
+			slog.Warn("Dataset too large, truncating",
+				"nace_code", naceCode,
+				"original_count", len(entityNumbers),
+				"truncated_to", MAX_COMPANIES)
+			entityNumbers = entityNumbers[:MAX_COMPANIES]
+		}
+
+		allCompanies, err = s.enrichCompleteCompanyData(entityNumbers, naceCode)
 		if err != nil {
 			return nil, err
 		}
 
+		dataSize := len(allCompanies)
+		estimatedSizeMB := dataSize * 2000 / 1024 / 1024
+
 		err = s.cache.Set(cacheKey, allCompanies, 24*time.Hour)
 		if err != nil {
-			slog.Warn("Failed to cache results", "error", err)
+			slog.Error("Cache write failed",
+				"nace_code", naceCode,
+				"companies_count", dataSize,
+				"estimated_size_mb", estimatedSizeMB,
+				"error", err.Error())
+		} else {
+			slog.Info("Cached complete company dataset",
+				"nace_code", naceCode,
+				"total", len(allCompanies),
+				"estimated_size_mb", estimatedSizeMB)
 		}
-
-		slog.Info("Cached all companies", "nace_code", naceCode, "total", len(allCompanies))
 	} else {
-		slog.Info("Cache hit", "nace_code", naceCode, "total", len(allCompanies))
+		slog.Info("Cache hit for complete dataset",
+			"nace_code", naceCode,
+			"total", len(allCompanies),
+			"cache_duration_ms", cacheDuration.Milliseconds())
 	}
 
 	total := len(allCompanies)
@@ -123,153 +151,258 @@ func (s *companyService) getAllEntityNumbersByNace(naceCode string) ([]string, e
 	return entityNumbers, nil
 }
 
-func (s *companyService) enrichCompanyData(entityNumbers []string, naceCode string) ([]models.CompanyResult, error) {
+func (s *companyService) enrichCompleteCompanyData(entityNumbers []string, naceCode string) ([]models.CompanyResult, error) {
 	if len(entityNumbers) == 0 {
 		return []models.CompanyResult{}, nil
 	}
 
-	batchSize := 1000
-	var allCompanies []models.CompanyResult
-
-	for i := 0; i < len(entityNumbers); i += batchSize {
-		end := min(i+batchSize, len(entityNumbers))
-
-		batch := entityNumbers[i:end]
-		companies, err := s.enrichBatch(batch, naceCode)
-		if err != nil {
-			slog.Warn("Failed to enrich batch", "start", i, "end", end, "error", err)
-			continue
-		}
-
-		allCompanies = append(allCompanies, companies...)
-		slog.Info("Enriched batch", "start", i, "end", end, "total_so_far", len(allCompanies))
-	}
-
-	s.enrichContactDataForAll(allCompanies)
-
-	return allCompanies, nil
-}
-
-func (s *companyService) enrichBatch(entityNumbers []string, naceCode string) ([]models.CompanyResult, error) {
-	placeholders := make([]string, len(entityNumbers))
-	args := make([]interface{}, len(entityNumbers))
-	for i, entityNumber := range entityNumbers {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-		args[i] = entityNumber
-	}
-
-	query := fmt.Sprintf(`
-		SELECT
-			e.enterprisenumber,
-			COALESCE(d.denomination, '') as denomination,
-			COALESCE(c.description, '') as juridical_form,
-			COALESCE(e.startdate::text, '') as start_date,
-			COALESCE(e.status, '') as status,
-			COALESCE(addr.zipcode, '') as zipcode,
-			COALESCE(addr.municipalityfr, '') as city,
-			COALESCE(addr.streetfr, '') as street,
-			COALESCE(addr.housenumber, '') as house_number,
-			COALESCE(n.libellé_fr, '') as nace_description
-		FROM enterprise e
-		LEFT JOIN denomination d ON e.enterprisenumber = d.entitynumber AND d.language = '2'
-		LEFT JOIN code c ON e.juridicalform = c.code AND c.category = 'JuridicalForm'
-		LEFT JOIN address addr ON e.enterprisenumber = addr.entitynumber AND addr.typeofaddress = 'REGO'
-		LEFT JOIN nacecode n ON '%s' = n.nacecode
-		WHERE e.enterprisenumber IN (%s)
-		ORDER BY e.enterprisenumber
-	`, naceCode, strings.Join(placeholders, ","))
-
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to enrich company data: %w", err)
-	}
-	defer rows.Close()
-
-	var companies []models.CompanyResult
-	for rows.Next() {
-		var company models.CompanyResult
-		err := rows.Scan(
-			&company.EntityNumber,
-			&company.Denomination,
-			&company.JuridicalForm,
-			&company.StartDate,
-			&company.Status,
-			&company.ZipCode,
-			&company.City,
-			&company.Street,
-			&company.HouseNumber,
-			&company.NaceDescription,
-		)
-		if err != nil {
-			continue
-		}
-		company.NaceCode = naceCode
-		companies = append(companies, company)
-	}
-
-	return companies, nil
-}
-
-func (s *companyService) enrichContactDataForAll(companies []models.CompanyResult) {
-	if len(companies) == 0 {
-		return
-	}
-
-	entityNumbers := make([]string, len(companies))
 	companyMap := make(map[string]*models.CompanyResult)
 
-	for i := range companies {
-		entityNumbers[i] = companies[i].EntityNumber
-		companyMap[companies[i].EntityNumber] = &companies[i]
+	for _, entityNumber := range entityNumbers {
+		companyMap[entityNumber] = &models.CompanyResult{
+			EntityNumber: entityNumber,
+			NaceCode:     naceCode,
+		}
+	}
+
+	slog.Info("Starting complete data enrichment", "entity_count", len(entityNumbers))
+
+	s.enrichEnterpriseData(companyMap)
+	s.enrichAllDenominations(companyMap)
+	s.enrichAllAddresses(companyMap)
+	s.enrichAllContacts(companyMap)
+	s.enrichAllActivities(companyMap)
+	s.enrichAllEstablishments(companyMap)
+
+	var results []models.CompanyResult
+	for _, entityNumber := range entityNumbers {
+		if company, exists := companyMap[entityNumber]; exists {
+			s.setLegacyFields(company)
+			results = append(results, *company)
+		}
+	}
+
+	slog.Info("Complete enrichment finished", "final_count", len(results))
+	return results, nil
+}
+
+func (s *companyService) enrichEnterpriseData(companyMap map[string]*models.CompanyResult) {
+	if len(companyMap) == 0 {
+		return
+	}
+
+	entityNumbers := make([]string, 0, len(companyMap))
+	for entityNumber := range companyMap {
+		entityNumbers = append(entityNumbers, entityNumber)
 	}
 
 	batchSize := 1000
 	for i := 0; i < len(entityNumbers); i += batchSize {
 		end := min(i+batchSize, len(entityNumbers))
-
 		batch := entityNumbers[i:end]
-		s.enrichContactBatch(batch, companyMap)
-	}
-}
 
-func (s *companyService) enrichContactBatch(entityNumbers []string, companyMap map[string]*models.CompanyResult) {
-	placeholders := make([]string, len(entityNumbers))
-	args := make([]interface{}, len(entityNumbers))
-	for i, entityNumber := range entityNumbers {
-		placeholders[i] = fmt.Sprintf("$%d", i+1)
-		args[i] = entityNumber
-	}
+		placeholders := make([]string, len(batch))
+		args := make([]any, len(batch))
+		for j, entityNumber := range batch {
+			placeholders[j] = fmt.Sprintf("$%d", j+1)
+			args[j] = entityNumber
+		}
 
-	query := fmt.Sprintf(`
-		SELECT entitynumber, contacttype, value
-		FROM contact
-		WHERE entitynumber IN (%s)
-		AND contacttype IN ('EMAIL', 'WEB', 'TEL', 'FAX')
-	`, strings.Join(placeholders, ","))
+		query := fmt.Sprintf(`
+			SELECT enterprisenumber, status, juridicalform, startdate
+			FROM enterprise
+			WHERE enterprisenumber IN (%s)
+		`, strings.Join(placeholders, ","))
 
-	rows, err := s.db.Query(query, args...)
-	if err != nil {
-		return
-	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var entityNumber, contactType, value string
-		if err := rows.Scan(&entityNumber, &contactType, &value); err != nil {
+		rows, err := s.db.Query(query, args...)
+		if err != nil {
+			slog.Warn("Failed to enrich enterprise data", "batch", i, "error", err)
 			continue
 		}
 
-		if company, exists := companyMap[entityNumber]; exists {
+		for rows.Next() {
+			var entityNumber, status, juridicalForm, startDate string
+			if err := rows.Scan(&entityNumber, &status, &juridicalForm, &startDate); err == nil {
+				if company, exists := companyMap[entityNumber]; exists {
+					company.Enterprise = map[string]any{
+						"status":         status,
+						"juridical_form": juridicalForm,
+						"start_date":     startDate,
+					}
+					company.Status = status
+					company.StartDate = startDate
+				}
+			}
+		}
+		rows.Close()
+	}
+
+	slog.Info("Enriched enterprise data", "companies", len(companyMap))
+}
+
+func (s *companyService) enrichAllDenominations(companyMap map[string]*models.CompanyResult) {
+	s.enrichTableData(companyMap, "denomination",
+		"SELECT entitynumber, language, denomination FROM denomination WHERE entitynumber IN (%s)",
+		func(company *models.CompanyResult, row map[string]any) {
+			if company.Denominations == nil {
+				company.Denominations = []map[string]any{}
+			}
+			company.Denominations = append(company.Denominations, row)
+
+			if row["language"] == "2" && company.Denomination == "" {
+				company.Denomination = fmt.Sprintf("%v", row["denomination"])
+			}
+		})
+}
+
+func (s *companyService) enrichAllAddresses(companyMap map[string]*models.CompanyResult) {
+	s.enrichTableData(companyMap, "address",
+		`SELECT entitynumber, typeofaddress, zipcode, municipalitynl, municipalityfr,
+			streetnl, streetfr, housenumber, box, extraaddressinfo
+		FROM address WHERE entitynumber IN (%s)`,
+		func(company *models.CompanyResult, row map[string]any) {
+			if company.Addresses == nil {
+				company.Addresses = []map[string]any{}
+			}
+			company.Addresses = append(company.Addresses, row)
+
+			if row["typeofaddress"] == "REGO" && company.ZipCode == "" {
+				company.ZipCode = fmt.Sprintf("%v", row["zipcode"])
+				if row["municipalityfr"] != nil {
+					company.City = fmt.Sprintf("%v", row["municipalityfr"])
+				}
+				if row["streetfr"] != nil {
+					company.Street = fmt.Sprintf("%v", row["streetfr"])
+				}
+				if row["housenumber"] != nil {
+					company.HouseNumber = fmt.Sprintf("%v", row["housenumber"])
+				}
+			}
+		})
+}
+
+func (s *companyService) enrichAllContacts(companyMap map[string]*models.CompanyResult) {
+	s.enrichTableData(companyMap, "contact",
+		"SELECT entitynumber, contacttype, value FROM contact WHERE entitynumber IN (%s)",
+		func(company *models.CompanyResult, row map[string]any) {
+			if company.Contacts == nil {
+				company.Contacts = []map[string]any{}
+			}
+			company.Contacts = append(company.Contacts, row)
+
+			contactType := fmt.Sprintf("%v", row["contacttype"])
+			value := fmt.Sprintf("%v", row["value"])
 			switch contactType {
 			case "EMAIL":
-				company.Email = value
+				if company.Email == "" {
+					company.Email = value
+				}
 			case "WEB":
-				company.Website = value
+				if company.Website == "" {
+					company.Website = value
+				}
 			case "TEL":
-				company.Phone = value
+				if company.Phone == "" {
+					company.Phone = value
+				}
 			case "FAX":
-				company.Fax = value
+				if company.Fax == "" {
+					company.Fax = value
+				}
 			}
+		})
+}
+
+func (s *companyService) enrichAllActivities(companyMap map[string]*models.CompanyResult) {
+	s.enrichTableData(companyMap, "activity",
+		"SELECT entitynumber, activitygroup, naceversion, nacecode, classification FROM activity WHERE entitynumber IN (%s)",
+		func(company *models.CompanyResult, row map[string]any) {
+			if company.Activities == nil {
+				company.Activities = []map[string]any{}
+			}
+			company.Activities = append(company.Activities, row)
+		})
+}
+
+func (s *companyService) enrichAllEstablishments(companyMap map[string]*models.CompanyResult) {
+	s.enrichTableData(companyMap, "establishment",
+		"SELECT establishmentnumber, enterprisenumber, startdate FROM establishment WHERE enterprisenumber IN (%s)",
+		func(company *models.CompanyResult, row map[string]any) {
+			if company.Establishments == nil {
+				company.Establishments = []map[string]any{}
+			}
+			company.Establishments = append(company.Establishments, row)
+		})
+}
+
+func (s *companyService) enrichTableData(companyMap map[string]*models.CompanyResult, tableName, queryTemplate string, processRow func(*models.CompanyResult, map[string]any)) {
+	if len(companyMap) == 0 {
+		return
+	}
+
+	entityNumbers := make([]string, 0, len(companyMap))
+	for entityNumber := range companyMap {
+		entityNumbers = append(entityNumbers, entityNumber)
+	}
+
+	batchSize := 1000
+	totalRows := 0
+
+	for i := 0; i < len(entityNumbers); i += batchSize {
+		end := min(i+batchSize, len(entityNumbers))
+		batch := entityNumbers[i:end]
+
+		placeholders := make([]string, len(batch))
+		args := make([]any, len(batch))
+		for j, entityNumber := range batch {
+			placeholders[j] = fmt.Sprintf("$%d", j+1)
+			args[j] = entityNumber
+		}
+
+		query := fmt.Sprintf(queryTemplate, strings.Join(placeholders, ","))
+
+		rows, err := s.db.Query(query, args...)
+		if err != nil {
+			slog.Warn("Failed to enrich table data", "table", tableName, "batch", i, "error", err)
+			continue
+		}
+
+		columns, err := rows.Columns()
+		if err != nil {
+			rows.Close()
+			continue
+		}
+
+		data, err := utils.ScanRowsToMaps(rows, columns)
+		rows.Close()
+
+		if err != nil {
+			slog.Warn("Failed to scan rows", "table", tableName, "batch", i, "error", err)
+			continue
+		}
+
+		for _, row := range data {
+			if entityNumber, ok := row["entitynumber"].(string); ok {
+				if company, exists := companyMap[entityNumber]; exists {
+					processRow(company, row)
+					totalRows++
+				}
+			} else if enterpriseNumber, ok := row["enterprisenumber"].(string); ok {
+				if company, exists := companyMap[enterpriseNumber]; exists {
+					processRow(company, row)
+					totalRows++
+				}
+			}
+		}
+	}
+
+	slog.Info("Enriched table data", "table", tableName, "total_rows", totalRows)
+}
+
+func (s *companyService) setLegacyFields(company *models.CompanyResult) {
+	if company.Enterprise != nil {
+		if jf, ok := company.Enterprise["juridical_form"].(string); ok {
+			company.JuridicalForm = jf
 		}
 	}
 }
