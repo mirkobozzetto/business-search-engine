@@ -2,6 +2,7 @@ package api
 
 import (
 	"csv-importer/api/middleware"
+	"csv-importer/api/services/company"
 	"csv-importer/api/services/data"
 	"csv-importer/api/services/export"
 	"csv-importer/api/services/search"
@@ -22,10 +23,11 @@ type Server struct {
 	router *gin.Engine
 	logger *slog.Logger
 
-	dataHandler   *data.Handler
-	searchHandler *search.Handler
-	tableHandler  *tables.Handler
-	exportHandler *export.Handler
+	dataHandler    *data.Handler
+	searchHandler  *search.Handler
+	tableHandler   *tables.Handler
+	exportHandler  *export.Handler
+	companyHandler *company.Handler
 }
 
 func createLogger() *slog.Logger {
@@ -67,14 +69,18 @@ func NewServer(db *sql.DB) *Server {
 	exportService := export.NewExportService(db)
 	exportHandler := export.NewHandler(exportService)
 
+	companyService := company.NewCompanyService(db)
+	companyHandler := company.NewHandler(companyService)
+
 	server := &Server{
-		db:            db,
-		router:        router,
-		logger:        logger,
-		dataHandler:   dataHandler,
-		searchHandler: searchHandler,
-		tableHandler:  tableHandler,
-		exportHandler: exportHandler,
+		db:             db,
+		router:         router,
+		logger:         logger,
+		dataHandler:    dataHandler,
+		searchHandler:  searchHandler,
+		tableHandler:   tableHandler,
+		exportHandler:  exportHandler,
+		companyHandler: companyHandler,
 	}
 
 	server.setupRoutes()
@@ -151,9 +157,12 @@ func (s *Server) setupRoutes() {
 			s.exportHandler.ExportData(),
 		)
 	}
+
+	companyGroup := api.Group("/companies")
+	{
+		companyGroup.GET("/search/nace", s.companyHandler.SearchByNaceCode())
+	}
 }
-
-
 
 func (s *Server) Start(port string) error {
 	s.logger.Info("🚀 API Server starting",
