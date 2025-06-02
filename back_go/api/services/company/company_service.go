@@ -2,16 +2,19 @@ package company
 
 import (
 	"context"
+	"csv-importer/api/cache"
 	"csv-importer/api/models"
 	"database/sql"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 )
 
 type companyService struct {
-	db *sql.DB
+	db    *sql.DB
+	cache *cache.RedisCache
 }
 
 func NewCompanyService(db *sql.DB) CompanyService {
@@ -20,8 +23,16 @@ func NewCompanyService(db *sql.DB) CompanyService {
 		os.Exit(1)
 	}
 
+	redisCache := cache.NewRedisCache(cache.CacheConfig{
+		Host:     "localhost",
+		Port:     "6379",
+		Password: "",
+		DB:       0,
+	})
+
 	return &companyService{
-		db: db,
+		db:    db,
+		cache: redisCache,
 	}
 }
 
@@ -30,45 +41,71 @@ func (s *companyService) SearchByNaceCode(ctx context.Context, naceCode string, 
 		return nil, fmt.Errorf("nace code cannot be empty")
 	}
 
-	if limit <= 0 || limit > 1000 {
-		return nil, fmt.Errorf("invalid limit: must be between 1 and 1000")
+	if limit <= 0 {
+		limit = 50
 	}
 
-	entityNumbers, err := s.getEntityNumbersByNace(naceCode, limit)
+	cacheKey := fmt.Sprintf("companies:nace:%s", naceCode)
+
+	var allCompanies []models.CompanyResult
+	err := s.cache.Get(cacheKey, &allCompanies)
+
 	if err != nil {
-		return nil, err
+		slog.Info("Cache miss, fetching from database", "nace_code", naceCode)
+
+		entityNumbers, err := s.getAllEntityNumbersByNace(naceCode)
+		if err != nil {
+			return nil, err
+		}
+
+		if len(entityNumbers) == 0 {
+			return &models.CompanySearchResult{
+				Criteria: models.CompanySearchCriteria{NaceCode: naceCode},
+				Results:  []models.CompanyResult{},
+				Meta:     models.Meta{Count: 0, Total: 0, Limit: limit},
+			}, nil
+		}
+
+		allCompanies, err = s.enrichCompanyData(entityNumbers, naceCode)
+		if err != nil {
+			return nil, err
+		}
+
+		err = s.cache.Set(cacheKey, allCompanies, 24*time.Hour)
+		if err != nil {
+			slog.Warn("Failed to cache results", "error", err)
+		}
+
+		slog.Info("Cached all companies", "nace_code", naceCode, "total", len(allCompanies))
+	} else {
+		slog.Info("Cache hit", "nace_code", naceCode, "total", len(allCompanies))
 	}
 
-	if len(entityNumbers) == 0 {
-		return &models.CompanySearchResult{
-			Criteria: models.CompanySearchCriteria{NaceCode: naceCode},
-			Results:  []models.CompanyResult{},
-			Meta:     models.Meta{Count: 0, Limit: limit},
-		}, nil
-	}
+	total := len(allCompanies)
+	var results []models.CompanyResult
 
-	companies, err := s.enrichCompanyData(entityNumbers, naceCode)
-	if err != nil {
-		return nil, err
+	if limit > total {
+		results = allCompanies
+	} else {
+		results = allCompanies[:limit]
 	}
 
 	return &models.CompanySearchResult{
 		Criteria: models.CompanySearchCriteria{NaceCode: naceCode},
-		Results:  companies,
-		Meta:     models.Meta{Count: len(companies), Limit: limit},
+		Results:  results,
+		Meta:     models.Meta{Count: len(results), Total: total, Limit: limit},
 	}, nil
 }
 
-func (s *companyService) getEntityNumbersByNace(naceCode string, limit int) ([]string, error) {
+func (s *companyService) getAllEntityNumbersByNace(naceCode string) ([]string, error) {
 	query := `
 		SELECT DISTINCT entitynumber
 		FROM activity
 		WHERE nacecode = $1 AND classification = 'MAIN'
 		ORDER BY entitynumber
-		LIMIT $2
 	`
 
-	rows, err := s.db.Query(query, naceCode, limit)
+	rows, err := s.db.Query(query, naceCode)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entity numbers: %w", err)
 	}
@@ -82,6 +119,7 @@ func (s *companyService) getEntityNumbersByNace(naceCode string, limit int) ([]s
 		}
 	}
 
+	slog.Info("Found entity numbers", "nace_code", naceCode, "count", len(entityNumbers))
 	return entityNumbers, nil
 }
 
@@ -90,6 +128,29 @@ func (s *companyService) enrichCompanyData(entityNumbers []string, naceCode stri
 		return []models.CompanyResult{}, nil
 	}
 
+	batchSize := 1000
+	var allCompanies []models.CompanyResult
+
+	for i := 0; i < len(entityNumbers); i += batchSize {
+		end := min(i+batchSize, len(entityNumbers))
+
+		batch := entityNumbers[i:end]
+		companies, err := s.enrichBatch(batch, naceCode)
+		if err != nil {
+			slog.Warn("Failed to enrich batch", "start", i, "end", end, "error", err)
+			continue
+		}
+
+		allCompanies = append(allCompanies, companies...)
+		slog.Info("Enriched batch", "start", i, "end", end, "total_so_far", len(allCompanies))
+	}
+
+	s.enrichContactDataForAll(allCompanies)
+
+	return allCompanies, nil
+}
+
+func (s *companyService) enrichBatch(entityNumbers []string, naceCode string) ([]models.CompanyResult, error) {
 	placeholders := make([]string, len(entityNumbers))
 	args := make([]any, len(entityNumbers))
 	for i, entityNumber := range entityNumbers {
@@ -124,7 +185,7 @@ func (s *companyService) enrichCompanyData(entityNumbers []string, naceCode stri
 	}
 	defer rows.Close()
 
-	companyMap := make(map[string]*models.CompanyResult)
+	var companies []models.CompanyResult
 	for rows.Next() {
 		var company models.CompanyResult
 		err := rows.Scan(
@@ -143,31 +204,35 @@ func (s *companyService) enrichCompanyData(entityNumbers []string, naceCode stri
 			continue
 		}
 		company.NaceCode = naceCode
-		companyMap[company.EntityNumber] = &company
+		companies = append(companies, company)
 	}
 
-	s.enrichContactData(companyMap)
-
-	var results []models.CompanyResult
-	for _, entityNumber := range entityNumbers {
-		if company, exists := companyMap[entityNumber]; exists {
-			results = append(results, *company)
-		}
-	}
-
-	return results, nil
+	return companies, nil
 }
 
-func (s *companyService) enrichContactData(companyMap map[string]*models.CompanyResult) {
-	if len(companyMap) == 0 {
+func (s *companyService) enrichContactDataForAll(companies []models.CompanyResult) {
+	if len(companies) == 0 {
 		return
 	}
 
-	entityNumbers := make([]string, 0, len(companyMap))
-	for entityNumber := range companyMap {
-		entityNumbers = append(entityNumbers, entityNumber)
+	entityNumbers := make([]string, len(companies))
+	companyMap := make(map[string]*models.CompanyResult)
+
+	for i := range companies {
+		entityNumbers[i] = companies[i].EntityNumber
+		companyMap[companies[i].EntityNumber] = &companies[i]
 	}
 
+	batchSize := 1000
+	for i := 0; i < len(entityNumbers); i += batchSize {
+		end := min(i+batchSize, len(entityNumbers))
+
+		batch := entityNumbers[i:end]
+		s.enrichContactBatch(batch, companyMap)
+	}
+}
+
+func (s *companyService) enrichContactBatch(entityNumbers []string, companyMap map[string]*models.CompanyResult) {
 	placeholders := make([]string, len(entityNumbers))
 	args := make([]any, len(entityNumbers))
 	for i, entityNumber := range entityNumbers {

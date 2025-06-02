@@ -47,7 +47,7 @@ func (r *RedisCache) Set(key string, value any, ttl time.Duration) error {
 	return r.client.Set(r.ctx, key, jsonData, ttl).Err()
 }
 
-func (r *RedisCache) Get(key string, dest interface{}) error {
+func (r *RedisCache) Get(key string, dest any) error {
 	val, err := r.client.Get(r.ctx, key).Result()
 	if err != nil {
 		if err == redis.Nil {
