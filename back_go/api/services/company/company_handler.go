@@ -118,19 +118,55 @@ func (h *Handler) SearchByZipcode() gin.HandlerFunc {
 	}
 }
 
+func (h *Handler) SearchByStartDate() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		fromDate := c.Query("from")
+		toDate := c.Query("to")
+		limitStr := c.DefaultQuery("limit", "50")
+
+		if fromDate == "" {
+			c.JSON(400, models.Error("start date 'from' parameter is required (format: DD-MM-YYYY)"))
+			return
+		}
+
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit <= 0 || limit > 1000 {
+			c.JSON(400, models.Error("invalid limit parameter"))
+			return
+		}
+
+		result, err := h.companyService.SearchByStartDate(c.Request.Context(), fromDate, toDate, limit)
+		if err != nil {
+			slog.Error("failed to search by start date",
+				"from_date", fromDate,
+				"to_date", toDate,
+				"limit", limit,
+				"error", err.Error(),
+			)
+			c.JSON(500, models.Error("search failed: "+err.Error()))
+			return
+		}
+
+		c.JSON(200, models.Success(result))
+	}
+}
+
 func (h *Handler) SearchMultiCriteria() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		limitStr := c.DefaultQuery("limit", "50")
 
 		criteria := models.CompanySearchCriteria{
-			NaceCode:     c.Query("nace"),
-			Denomination: c.Query("denomination"),
-			ZipCode:      c.Query("zipcode"),
-			Status:       c.Query("status"),
+			NaceCode:      c.Query("nace"),
+			Denomination:  c.Query("denomination"),
+			ZipCode:       c.Query("zipcode"),
+			Status:        c.Query("status"),
+			StartDateFrom: c.Query("startdate_from"),
+			StartDateTo:   c.Query("startdate_to"),
 		}
 
-		if criteria.NaceCode == "" && criteria.Denomination == "" && criteria.ZipCode == "" && criteria.Status == "" {
-			c.JSON(400, models.Error("at least one search criteria required (nace, denomination, zipcode, status)"))
+		if criteria.NaceCode == "" && criteria.Denomination == "" && criteria.ZipCode == "" &&
+			criteria.Status == "" && criteria.StartDateFrom == "" {
+			c.JSON(400, models.Error("at least one search criteria required (nace, denomination, zipcode, status, startdate_from)"))
 			return
 		}
 

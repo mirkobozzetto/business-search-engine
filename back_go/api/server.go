@@ -163,8 +163,10 @@ func (s *Server) setupRoutes() {
 		companyGroup.GET("/search/nace", s.companyHandler.SearchByNaceCode())
 		companyGroup.GET("/search/denomination", s.companyHandler.SearchByDenomination())
 		companyGroup.GET("/search/zipcode", s.companyHandler.SearchByZipcode())
+		companyGroup.GET("/search/startdate", s.companyHandler.SearchByStartDate())
 		companyGroup.GET("/search/multi", s.companyHandler.SearchMultiCriteria())
 	}
+
 }
 
 func (s *Server) Start(port string) error {

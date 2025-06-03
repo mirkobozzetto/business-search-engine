@@ -1,10 +1,12 @@
 package models
 
 type CompanySearchCriteria struct {
-	NaceCode     string `json:"nace_code,omitempty"`
-	ZipCode      string `json:"zipcode,omitempty"`
-	Status       string `json:"status,omitempty"`
-	Denomination string `json:"denomination,omitempty"`
+	NaceCode      string `json:"nace_code,omitempty"`
+	Denomination  string `json:"denomination,omitempty"`
+	ZipCode       string `json:"zipcode,omitempty"`
+	Status        string `json:"status,omitempty"`
+	StartDateFrom string `json:"startdate_from,omitempty"`
+	StartDateTo   string `json:"startdate_to,omitempty"`
 }
 
 type CompanyResult struct {
