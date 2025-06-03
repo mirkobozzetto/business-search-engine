@@ -2,14 +2,20 @@
 
 echo "🔄 Starting BCE PostgreSQL + Redis + API safely"
 
-echo "📦 Stopping containers..."
-docker-compose down
+echo "🔍 Checking containers..."
+if ! docker ps | grep -q bce_postgres; then
+    echo "🚀 Starting containers..."
+    docker-compose up -d
+else
+    echo "✅ Containers already running"
+fi
 
-echo "🚀 Starting containers..."
-docker-compose up -d
-
-echo "⏳ Waiting for services (7 seconds)..."
-sleep 7
+echo "⏳ Waiting for PostgreSQL to be ready..."
+until docker exec bce_postgres pg_isready -U mirkobozzetto -d bce_db > /dev/null 2>&1; do
+    sleep 2
+    echo "   Still waiting..."
+done
+echo "✅ PostgreSQL ready!"
 
 echo "📋 PostgreSQL logs:"
 docker logs --tail 10 bce_postgres
