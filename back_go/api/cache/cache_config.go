@@ -16,8 +16,8 @@ type CacheConfig struct {
 
 const (
 	COMPRESSION_THRESHOLD = 1024              // 1KB
-	MAX_UNCOMPRESSED_SIZE = 200 * 1024 * 1024 // 200MB pour données non-compressées
-	MAX_COMPRESSED_SIZE   = 50 * 1024 * 1024  // 50MB pour données compressées
+	MAX_UNCOMPRESSED_SIZE = 200 * 1024 * 1024 // 200MB for uncompressed data
+	MAX_COMPRESSED_SIZE   = 50 * 1024 * 1024  // 50MB for compressed data
 	COMPRESSION_PREFIX    = "gz:"
 )
 
