@@ -1,84 +1,84 @@
-# API BCE - Guide Utilisateur
+# BCE API - User Guide
 
-## Vue d'ensemble
+## Overview
 
-API de recherche d'entreprises belges avec 47M+ lignes réparties sur 10 tables. Système basé sur `entitynumber` comme clé universelle.
+API for searching Belgian companies with 47M+ rows spread across 10 tables. System based on `entitynumber` as universal key.
 
-## Tables Principales
+## Main Tables
 
 ```
-entitynumber (clé universelle)
-├── activity (36M lignes) - Codes NACE, classifications
-├── address (2.8M lignes) - Adresses complètes
-├── contact (683k lignes) - Email, téléphone, web, fax
-├── denomination (3.3M lignes) - Noms FR/NL/DE
-├── enterprise (1.9M lignes) - Statut, forme juridique, dates
-└── establishment (1.6M lignes) - Unités locales
+entitynumber (universal key)
+├── activity (36M rows) - NACE codes, classifications
+├── address (2.8M rows) - Complete addresses
+├── contact (683k rows) - Email, phone, web, fax
+├── denomination (3.3M rows) - Names FR/NL/DE
+├── enterprise (1.9M rows) - Status, legal form, dates
+└── establishment (1.6M rows) - Local units
 ```
 
-## Comment ça Marche
+## How it Works
 
-### Principe Simple
+### Simple Principle
 
-1. **Point d'entrée** → Récupère les entitynumbers
-2. **Enrichissement automatique** → Joint les 6 tables
-3. **Cache Redis** → Stocke le tout
-4. **Multi-critères** → Intersection des caches
+1. **Entry point** → Retrieves entitynumbers
+2. **Automatic enrichment** → Joins the 6 tables
+3. **Redis cache** → Stores everything
+4. **Multi-criteria** → Cache intersection
 
-### Prérequis Important
+### Important Prerequisites
 
-Pour utiliser `/search/multi`, il faut OBLIGATOIREMENT créer les caches individuels d'abord.
+To use `/search/multi`, you MUST create individual caches first.
 
-## Endpoints Disponibles
+## Available Endpoints
 
 ```bash
-# Recherche par code NACE
+# Search by NACE code
 curl "localhost:8080/api/companies/search/nace?code=62010" | jq
 
-# Recherche par nom d'entreprise
+# Search by company name
 curl "localhost:8080/api/companies/search/denomination?q=informatique" | jq
 
-# Recherche par code postal
+# Search by postal code
 curl "localhost:8080/api/companies/search/zipcode?q=1000" | jq
 
-# Recherche par date de création
+# Search by creation date
 curl "localhost:8080/api/companies/search/startdate?from=01-01-2025" | jq
 
-# Multi-critères (après avoir créé les caches)
+# Multi-criteria (after creating caches)
 curl "localhost:8080/api/companies/search/multi?nace=62010&zipcode=1000" | jq
 ```
 
-## Workflow Basique
+## Basic Workflow
 
-### Exemple : Coaches de santé créés en 2025
+### Example: Health coaches created in 2025
 
-**Étape 1 : Cache NACE**
+**Step 1: NACE Cache**
 
 ```bash
 curl "localhost:8080/api/companies/search/nace?code=56309" | jq
-# Crée le cache pour toutes les entreprises NACE 56309
+# Creates cache for all companies with NACE 56309
 ```
 
-**Étape 2 : Cache Date**
+**Step 2: Date Cache**
 
 ```bash
 curl "localhost:8080/api/companies/search/startdate?from=01-01-2025" | jq
-# Crée le cache pour toutes les entreprises créées en 2025+
+# Creates cache for all companies created in 2025+
 ```
 
-**Étape 3 : Intersection**
+**Step 3: Intersection**
 
 ```bash
 curl "localhost:8080/api/companies/search/multi?nace=56309&startdate_from=01-01-2025" | jq
-# Intersection des 2 caches = entreprises NACE 56309 créées en 2025
+# Intersection of 2 caches = companies NACE 56309 created in 2025
 ```
 
-## Erreurs Fréquentes
+## Common Errors
 
-### Cache manquant
+### Missing cache
 
 ```bash
-# ❌ Erreur
+# ❌ Error
 curl "localhost:8080/api/companies/search/multi?nace=62010&zipcode=1000" | jq
 # "NACE cache not found: 62010. Please search by NACE first"
 
@@ -88,40 +88,40 @@ curl "localhost:8080/api/companies/search/zipcode?q=1000" | jq
 curl "localhost:8080/api/companies/search/multi?nace=62010&zipcode=1000" | jq
 ```
 
-### Paramètre incorrect
+### Incorrect parameter
 
 ```bash
-# ❌ Erreur - Paramètre "nace="
+# ❌ Error - Parameter "nace="
 curl "localhost:8080/api/companies/search/nace?nace=62010" | jq
 
-# ✅ Correct - Paramètre "code="
+# ✅ Correct - Parameter "code="
 curl "localhost:8080/api/companies/search/nace?code=62010" | jq
 ```
 
-## Structure de Réponse
+## Response Structure
 
-Chaque entreprise retournée contient :
+Each returned company contains:
 
-- **Données de base** : entitynumber, denomination, zipcode, city
-- **Contacts** : email, web, tel, fax
-- **Détails** : status, juridical_form, start_date
-- **Données complètes** : denominations[], addresses[], contacts[], activities[], etc.
+- **Basic data**: entitynumber, denomination, zipcode, city
+- **Contacts**: email, web, tel, fax
+- **Details**: status, juridical_form, start_date
+- **Complete data**: denominations[], addresses[], contacts[], activities[], etc.
 
-## Cas d'Usage Simples
+## Simple Use Cases
 
-### Toutes les entreprises d'un secteur
+### All companies in a sector
 
 ```bash
 curl "localhost:8080/api/companies/search/nace?code=62010" | jq
 ```
 
-### Entreprises d'une ville
+### Companies in a city
 
 ```bash
 curl "localhost:8080/api/companies/search/zipcode?q=1000" | jq
 ```
 
-### Croisement secteur + ville
+### Sector + city intersection
 
 ```bash
 curl "localhost:8080/api/companies/search/nace?code=62010" | jq
@@ -129,7 +129,7 @@ curl "localhost:8080/api/companies/search/zipcode?q=1000" | jq
 curl "localhost:8080/api/companies/search/multi?nace=62010&zipcode=1000" | jq
 ```
 
-### Nouvelles entreprises d'un secteur
+### New companies in a sector
 
 ```bash
 curl "localhost:8080/api/companies/search/nace?code=62010" | jq

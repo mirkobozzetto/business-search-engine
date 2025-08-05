@@ -42,10 +42,10 @@ func HandleTestRedis(db *sql.DB) {
 	fmt.Printf("✅ Got: %s\n", result)
 
 	fmt.Print("📋 Testing JSON SET... ")
-	testData := map[string]interface{}{
+	testData := map[string]any{
 		"entity_number": "123456789",
 		"name":          "Test Company",
-		"nacecode":     "62020",
+		"nacecode":      "62020",
 		"contacts": map[string]string{
 			"email": "test@example.be",
 			"phone": "+32123456789",
