@@ -70,6 +70,7 @@ func (s *Server) setupRoutes() {
 	companies.GET("/search/etatadministratif", s.companyHandler.SearchByEtatAdministratif)
 	companies.GET("/search/datecreation", s.companyHandler.SearchByDateCreation)
 	companies.GET("/search/multi", s.companyHandler.SearchMultiCriteria)
+	companies.GET("/lookup/:identifier", s.companyHandler.SearchByIdentifier)
 }
 
 func corsMiddleware() gin.HandlerFunc {

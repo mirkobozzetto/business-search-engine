@@ -136,19 +136,35 @@ func (h *Handler) SearchByEtatAdministratif(c *gin.Context) {
 
 func (h *Handler) SearchMultiCriteria(c *gin.Context) {
 	criteria := models.CompanySearchCriteria{
-		NafCode:           c.Query("naf"),
-		Denomination:      c.Query("denomination"),
-		CodePostal:        c.Query("codepostal"),
-		Commune:           c.Query("commune"),
-		EtatAdministratif: c.Query("etat"),
-		DateCreationFrom:  c.Query("from"),
-		DateCreationTo:    c.Query("to"),
+		NafCode:            c.Query("naf"),
+		Denomination:       c.Query("denomination"),
+		CodePostal:         c.Query("codepostal"),
+		Commune:            c.Query("commune"),
+		EtatAdministratif:  c.Query("etat"),
+		DateCreationFrom:   c.Query("from"),
+		DateCreationTo:     c.Query("to"),
+		CategorieJuridique: c.Query("categorie_juridique"),
+		TrancheEffectifs:   c.Query("tranche_effectifs"),
 	}
 	limit := parseLimit(c, 100)
 	offset := parseOffset(c)
 	result, err := h.service.SearchMultiCriteria(c.Request.Context(), criteria, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
+		return
+	}
+	c.JSON(http.StatusOK, models.Success(result))
+}
+
+func (h *Handler) SearchByIdentifier(c *gin.Context) {
+	identifier := c.Param("identifier")
+	if identifier == "" {
+		c.JSON(http.StatusBadRequest, models.Error("identifier parameter required (SIREN 9 digits or SIRET 14 digits)"))
+		return
+	}
+	result, err := h.service.SearchByIdentifier(c.Request.Context(), identifier)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, models.Error(err.Error()))
 		return
 	}
 	c.JSON(http.StatusOK, models.Success(result))
