@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
-func (s *companyService) SearchByEtatAdministratif(ctx context.Context, etat string, limit int) (*models.CompanySearchResult, error) {
+func (s *companyService) SearchByEtatAdministratif(ctx context.Context, etat string, limit int, offset int) (*models.CompanySearchResult, error) {
 	cacheKey := fmt.Sprintf("sirene:full:etatadmin:%s", etat)
 
 	var cached models.CompanySearchResult
 	if err := s.cache.Get(cacheKey, &cached); err == nil {
 		slog.Info("Cache hit", "key", cacheKey)
-		return buildSearchResult(&cached, limit), nil
+		return buildSearchResult(&cached, limit, offset), nil
 	}
 
 	sirens, err := s.getAllSirensByEtatAdministratif(ctx, etat)
@@ -30,6 +30,7 @@ func (s *companyService) SearchByEtatAdministratif(ctx context.Context, etat str
 		}, nil
 	}
 
+	totalFound := len(sirens)
 	if len(sirens) > MAX_COMPANIES {
 		sirens = sirens[:MAX_COMPANIES]
 	}
@@ -39,11 +40,11 @@ func (s *companyService) SearchByEtatAdministratif(ctx context.Context, etat str
 	result := &models.CompanySearchResult{
 		Criteria: models.CompanySearchCriteria{EtatAdministratif: etat},
 		Results:  companies,
-		Meta:     models.Meta{Total: len(companies)},
+		Meta:     models.Meta{Total: totalFound},
 	}
 
 	s.cache.Set(cacheKey, result, 24*time.Hour)
-	return buildSearchResult(result, limit), nil
+	return buildSearchResult(result, limit, offset), nil
 }
 
 func (s *companyService) getAllSirensByEtatAdministratif(ctx context.Context, etat string) ([]string, error) {

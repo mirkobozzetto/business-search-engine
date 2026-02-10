@@ -1,10 +1,10 @@
 package cache
 
 import (
+	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"strings"
 	"time"
-	"github.com/redis/go-redis/v9"
 )
 
 func (r *RedisCache) Delete(key string) error {

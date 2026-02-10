@@ -8,13 +8,13 @@ import (
 	"time"
 )
 
-func (s *companyService) SearchByCodePostal(ctx context.Context, codePostal string, limit int) (*models.CompanySearchResult, error) {
+func (s *companyService) SearchByCodePostal(ctx context.Context, codePostal string, limit, offset int) (*models.CompanySearchResult, error) {
 	cacheKey := fmt.Sprintf("sirene:full:codepostal:%s", codePostal)
 
 	var cached models.CompanySearchResult
 	if err := s.cache.Get(cacheKey, &cached); err == nil {
 		slog.Info("Cache hit", "key", cacheKey)
-		return buildSearchResult(&cached, limit), nil
+		return buildSearchResult(&cached, limit, offset), nil
 	}
 
 	sirens, err := s.getAllSirensByCodePostal(ctx, codePostal)
@@ -30,6 +30,7 @@ func (s *companyService) SearchByCodePostal(ctx context.Context, codePostal stri
 		}, nil
 	}
 
+	totalFound := len(sirens)
 	if len(sirens) > MAX_COMPANIES {
 		sirens = sirens[:MAX_COMPANIES]
 	}
@@ -39,11 +40,11 @@ func (s *companyService) SearchByCodePostal(ctx context.Context, codePostal stri
 	result := &models.CompanySearchResult{
 		Criteria: models.CompanySearchCriteria{CodePostal: codePostal},
 		Results:  companies,
-		Meta:     models.Meta{Total: len(companies)},
+		Meta:     models.Meta{Total: totalFound},
 	}
 
 	s.cache.Set(cacheKey, result, 24*time.Hour)
-	return buildSearchResult(result, limit), nil
+	return buildSearchResult(result, limit, offset), nil
 }
 
 func (s *companyService) getAllSirensByCodePostal(ctx context.Context, codePostal string) ([]string, error) {

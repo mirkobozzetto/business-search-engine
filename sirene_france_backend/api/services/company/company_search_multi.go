@@ -6,11 +6,11 @@ import (
 	"sirene-importer/api/models"
 )
 
-func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria models.CompanySearchCriteria, limit int) (*models.CompanySearchResult, error) {
+func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria models.CompanySearchCriteria, limit int, offset int) (*models.CompanySearchResult, error) {
 	var datasets [][]models.CompanyResult
 
 	if criteria.NafCode != "" {
-		result, err := s.SearchByNafCode(ctx, criteria.NafCode, 0)
+		result, err := s.SearchByNafCode(ctx, criteria.NafCode, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("naf search failed: %w", err)
 		}
@@ -18,7 +18,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	}
 
 	if criteria.Denomination != "" {
-		result, err := s.SearchByDenomination(ctx, criteria.Denomination, 0)
+		result, err := s.SearchByDenomination(ctx, criteria.Denomination, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("denomination search failed: %w", err)
 		}
@@ -26,7 +26,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	}
 
 	if criteria.CodePostal != "" {
-		result, err := s.SearchByCodePostal(ctx, criteria.CodePostal, 0)
+		result, err := s.SearchByCodePostal(ctx, criteria.CodePostal, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("codepostal search failed: %w", err)
 		}
@@ -34,7 +34,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	}
 
 	if criteria.DateCreationFrom != "" {
-		result, err := s.SearchByDateCreation(ctx, criteria.DateCreationFrom, criteria.DateCreationTo, 0)
+		result, err := s.SearchByDateCreation(ctx, criteria.DateCreationFrom, criteria.DateCreationTo, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("datecreation search failed: %w", err)
 		}
@@ -42,7 +42,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	}
 
 	if criteria.Commune != "" {
-		result, err := s.SearchByCommune(ctx, criteria.Commune, 0)
+		result, err := s.SearchByCommune(ctx, criteria.Commune, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("commune search failed: %w", err)
 		}
@@ -50,7 +50,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	}
 
 	if criteria.EtatAdministratif != "" {
-		result, err := s.SearchByEtatAdministratif(ctx, criteria.EtatAdministratif, 0)
+		result, err := s.SearchByEtatAdministratif(ctx, criteria.EtatAdministratif, 0, 0)
 		if err != nil {
 			return nil, fmt.Errorf("etatadministratif search failed: %w", err)
 		}
@@ -73,7 +73,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 		Meta:     models.Meta{Total: len(results)},
 	}
 
-	return buildSearchResult(searchResult, limit), nil
+	return buildSearchResult(searchResult, limit, offset), nil
 }
 
 func intersectResults(datasets [][]models.CompanyResult) []models.CompanyResult {

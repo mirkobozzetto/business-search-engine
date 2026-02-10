@@ -34,6 +34,8 @@ func (c *CLI) Execute(args []string) {
 		handlers.HandleImportAll(c.db)
 	case "tables":
 		handlers.HandleListTables(c.db)
+	case "indexes":
+		handlers.HandleCreateIndexes(c.db)
 	case "help", "--help", "-h":
 		handlers.ShowHelp()
 	default:

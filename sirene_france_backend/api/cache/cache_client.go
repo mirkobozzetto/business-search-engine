@@ -3,9 +3,9 @@ package cache
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/redis/go-redis/v9"
 	"log/slog"
 	"time"
-	"github.com/redis/go-redis/v9"
 )
 
 func (r *RedisCache) Set(key string, value any, ttl time.Duration) error {

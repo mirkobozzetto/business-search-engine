@@ -81,6 +81,11 @@ func ProcessAllZIPs(db *sql.DB, zipDir string) error {
 	totalElapsed := time.Since(totalStart)
 	fmt.Printf("\nAll %d tables created in %.2f minutes\n", len(zipFiles), totalElapsed.Minutes())
 
+	fmt.Println("\nCr\u00e9ation des indexes...")
+	if err := CreateIndexes(db); err != nil {
+		fmt.Printf("Erreur indexes: %v\n", err)
+	}
+
 	return nil
 }
 

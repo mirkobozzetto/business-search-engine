@@ -10,13 +10,13 @@ import (
 
 const MAX_COMPANIES = 100000
 
-func (s *companyService) SearchByNafCode(ctx context.Context, nafCode string, limit int) (*models.CompanySearchResult, error) {
+func (s *companyService) SearchByNafCode(ctx context.Context, nafCode string, limit, offset int) (*models.CompanySearchResult, error) {
 	cacheKey := fmt.Sprintf("sirene:full:naf:%s", nafCode)
 
 	var cached models.CompanySearchResult
 	if err := s.cache.Get(cacheKey, &cached); err == nil {
 		slog.Info("Cache hit", "key", cacheKey, "total", cached.Meta.Total)
-		return buildSearchResult(&cached, limit), nil
+		return buildSearchResult(&cached, limit, offset), nil
 	}
 
 	sirens, err := s.getAllSirensByNaf(ctx, nafCode)
@@ -32,6 +32,7 @@ func (s *companyService) SearchByNafCode(ctx context.Context, nafCode string, li
 		}, nil
 	}
 
+	totalFound := len(sirens)
 	if len(sirens) > MAX_COMPANIES {
 		sirens = sirens[:MAX_COMPANIES]
 	}
@@ -41,11 +42,11 @@ func (s *companyService) SearchByNafCode(ctx context.Context, nafCode string, li
 	result := &models.CompanySearchResult{
 		Criteria: models.CompanySearchCriteria{NafCode: nafCode},
 		Results:  companies,
-		Meta:     models.Meta{Total: len(companies)},
+		Meta:     models.Meta{Total: totalFound},
 	}
 
 	s.cache.Set(cacheKey, result, 24*time.Hour)
-	return buildSearchResult(result, limit), nil
+	return buildSearchResult(result, limit, offset), nil
 }
 
 func (s *companyService) getAllSirensByNaf(ctx context.Context, nafCode string) ([]string, error) {

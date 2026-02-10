@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func (s *companyService) SearchByDateCreation(ctx context.Context, fromDate, toDate string, limit int) (*models.CompanySearchResult, error) {
+func (s *companyService) SearchByDateCreation(ctx context.Context, fromDate, toDate string, limit int, offset int) (*models.CompanySearchResult, error) {
 	cacheKey := fmt.Sprintf("sirene:full:datecreation:%s_%s", fromDate, toDate)
 	if toDate == "" {
 		cacheKey = fmt.Sprintf("sirene:full:datecreation:from_%s", fromDate)
@@ -17,7 +17,7 @@ func (s *companyService) SearchByDateCreation(ctx context.Context, fromDate, toD
 	var cached models.CompanySearchResult
 	if err := s.cache.Get(cacheKey, &cached); err == nil {
 		slog.Info("Cache hit", "key", cacheKey)
-		return buildSearchResult(&cached, limit), nil
+		return buildSearchResult(&cached, limit, offset), nil
 	}
 
 	sirens, err := s.getAllSirensByDateCreation(ctx, fromDate, toDate)
@@ -33,6 +33,7 @@ func (s *companyService) SearchByDateCreation(ctx context.Context, fromDate, toD
 		}, nil
 	}
 
+	totalFound := len(sirens)
 	if len(sirens) > MAX_COMPANIES {
 		sirens = sirens[:MAX_COMPANIES]
 	}
@@ -42,11 +43,11 @@ func (s *companyService) SearchByDateCreation(ctx context.Context, fromDate, toD
 	result := &models.CompanySearchResult{
 		Criteria: models.CompanySearchCriteria{DateCreationFrom: fromDate, DateCreationTo: toDate},
 		Results:  companies,
-		Meta:     models.Meta{Total: len(companies)},
+		Meta:     models.Meta{Total: totalFound},
 	}
 
 	s.cache.Set(cacheKey, result, 24*time.Hour)
-	return buildSearchResult(result, limit), nil
+	return buildSearchResult(result, limit, offset), nil
 }
 
 func (s *companyService) getAllSirensByDateCreation(ctx context.Context, fromDate, toDate string) ([]string, error) {

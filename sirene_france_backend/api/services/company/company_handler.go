@@ -1,10 +1,10 @@
 package company
 
 import (
-	"net/http"
-	"strconv"
-	"sirene-importer/api/models"
 	"github.com/gin-gonic/gin"
+	"net/http"
+	"sirene-importer/api/models"
+	"strconv"
 )
 
 type Handler struct {
@@ -28,6 +28,15 @@ func parseLimit(c *gin.Context, defaultLimit int) int {
 	return limit
 }
 
+func parseOffset(c *gin.Context) int {
+	if o := c.Query("offset"); o != "" {
+		if parsed, err := strconv.Atoi(o); err == nil && parsed >= 0 {
+			return parsed
+		}
+	}
+	return 0
+}
+
 func (h *Handler) SearchByNafCode(c *gin.Context) {
 	code := c.Query("code")
 	if code == "" {
@@ -35,7 +44,8 @@ func (h *Handler) SearchByNafCode(c *gin.Context) {
 		return
 	}
 	limit := parseLimit(c, 100)
-	result, err := h.service.SearchByNafCode(c.Request.Context(), code, limit)
+	offset := parseOffset(c)
+	result, err := h.service.SearchByNafCode(c.Request.Context(), code, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
 		return
@@ -50,7 +60,8 @@ func (h *Handler) SearchByDenomination(c *gin.Context) {
 		return
 	}
 	limit := parseLimit(c, 100)
-	result, err := h.service.SearchByDenomination(c.Request.Context(), query, limit)
+	offset := parseOffset(c)
+	result, err := h.service.SearchByDenomination(c.Request.Context(), query, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
 		return
@@ -65,7 +76,8 @@ func (h *Handler) SearchByCodePostal(c *gin.Context) {
 		return
 	}
 	limit := parseLimit(c, 100)
-	result, err := h.service.SearchByCodePostal(c.Request.Context(), cp, limit)
+	offset := parseOffset(c)
+	result, err := h.service.SearchByCodePostal(c.Request.Context(), cp, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
 		return
@@ -81,7 +93,8 @@ func (h *Handler) SearchByDateCreation(c *gin.Context) {
 		return
 	}
 	limit := parseLimit(c, 100)
-	result, err := h.service.SearchByDateCreation(c.Request.Context(), from, to, limit)
+	offset := parseOffset(c)
+	result, err := h.service.SearchByDateCreation(c.Request.Context(), from, to, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
 		return
@@ -96,7 +109,8 @@ func (h *Handler) SearchByCommune(c *gin.Context) {
 		return
 	}
 	limit := parseLimit(c, 100)
-	result, err := h.service.SearchByCommune(c.Request.Context(), commune, limit)
+	offset := parseOffset(c)
+	result, err := h.service.SearchByCommune(c.Request.Context(), commune, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
 		return
@@ -111,7 +125,8 @@ func (h *Handler) SearchByEtatAdministratif(c *gin.Context) {
 		return
 	}
 	limit := parseLimit(c, 100)
-	result, err := h.service.SearchByEtatAdministratif(c.Request.Context(), etat, limit)
+	offset := parseOffset(c)
+	result, err := h.service.SearchByEtatAdministratif(c.Request.Context(), etat, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
 		return
@@ -130,7 +145,8 @@ func (h *Handler) SearchMultiCriteria(c *gin.Context) {
 		DateCreationTo:    c.Query("to"),
 	}
 	limit := parseLimit(c, 100)
-	result, err := h.service.SearchMultiCriteria(c.Request.Context(), criteria, limit)
+	offset := parseOffset(c)
+	result, err := h.service.SearchMultiCriteria(c.Request.Context(), criteria, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.Error(err.Error()))
 		return

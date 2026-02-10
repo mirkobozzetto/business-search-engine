@@ -9,13 +9,13 @@ import (
 	"time"
 )
 
-func (s *companyService) SearchByDenomination(ctx context.Context, query string, limit int) (*models.CompanySearchResult, error) {
+func (s *companyService) SearchByDenomination(ctx context.Context, query string, limit, offset int) (*models.CompanySearchResult, error) {
 	cacheKey := fmt.Sprintf("sirene:full:denomination:%s", query)
 
 	var cached models.CompanySearchResult
 	if err := s.cache.Get(cacheKey, &cached); err == nil {
 		slog.Info("Cache hit", "key", cacheKey)
-		return buildSearchResult(&cached, limit), nil
+		return buildSearchResult(&cached, limit, offset), nil
 	}
 
 	sirens, err := s.getAllSirensByDenomination(ctx, query)
@@ -31,6 +31,7 @@ func (s *companyService) SearchByDenomination(ctx context.Context, query string,
 		}, nil
 	}
 
+	totalFound := len(sirens)
 	if len(sirens) > MAX_COMPANIES {
 		sirens = sirens[:MAX_COMPANIES]
 	}
@@ -40,11 +41,11 @@ func (s *companyService) SearchByDenomination(ctx context.Context, query string,
 	result := &models.CompanySearchResult{
 		Criteria: models.CompanySearchCriteria{Denomination: query},
 		Results:  companies,
-		Meta:     models.Meta{Total: len(companies)},
+		Meta:     models.Meta{Total: totalFound},
 	}
 
 	s.cache.Set(cacheKey, result, 24*time.Hour)
-	return buildSearchResult(result, limit), nil
+	return buildSearchResult(result, limit, offset), nil
 }
 
 func (s *companyService) getAllSirensByDenomination(ctx context.Context, query string) ([]string, error) {

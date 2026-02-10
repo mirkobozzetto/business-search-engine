@@ -2,15 +2,15 @@ package api
 
 import (
 	"database/sql"
+	"github.com/gin-gonic/gin"
+	"github.com/lmittmann/tint"
 	"log/slog"
 	"net/http"
 	"os"
+	"sirene-importer/api/services/company"
 	"sirene-importer/config"
 	"sirene-importer/database"
-	"sirene-importer/api/services/company"
 	"time"
-	"github.com/gin-gonic/gin"
-	"github.com/lmittmann/tint"
 )
 
 type Server struct {
