@@ -65,6 +65,12 @@ ps:
 	@echo "=== SIRENE France ==="
 	@docker compose -f sirene_france_backend/docker-compose.yml ps
 
+sirene-sql:
+	@export $$(grep -v '^#' sirene_france_backend/.env | xargs) && PSQLRC=/dev/null PAGER=cat PGPASSWORD=$$POSTGRES_PASSWORD psql -h $$DB_HOST -p $$DB_PORT -U $$POSTGRES_USER -d $$POSTGRES_DB
+
+sirene-count:
+	@export $$(grep -v '^#' sirene_france_backend/.env | xargs) && PSQLRC=/dev/null PAGER=cat PGPASSWORD=$$POSTGRES_PASSWORD psql -h $$DB_HOST -p $$DB_PORT -U $$POSTGRES_USER -d $$POSTGRES_DB -c "SELECT 'unite_legale' as table_name, COUNT(*) FROM unite_legale UNION ALL SELECT 'etablissement', COUNT(*) FROM etablissement;"
+
 help:
 	@echo "BCE Belgium:"
 	@echo "  make bce-up          Démarrer PostgreSQL + Redis (ports 5433/6379)"
@@ -83,6 +89,8 @@ help:
 	@echo "  make sirene-import   Importer les ZIP (+ création indexes)"
 	@echo "  make sirene-indexes  Créer les indexes PostgreSQL manuellement"
 	@echo "  make sirene-reimport Ré-import complet (supprime volumes + reimporte)"
+	@echo "  make sirene-sql      Ouvrir un terminal SQL (sans pager)"
+	@echo "  make sirene-count    Compter les lignes dans les tables"
 	@echo ""
 	@echo "Global:"
 	@echo "  make up-all          Démarrer les deux stacks"
