@@ -1,8 +1,18 @@
-# Ignore all CSV files everywhere in the project
 *.csv
 **/*.csv
-.env
+*.zip
+**/*.zip
+*.xlsx
 **/*.xlsx
+.env
+**/.env
+.DS_Store
+**/.DS_Store
 node_modules/
 **/node_modules/
 
+bce_mai_2025/
+sirene_data/
+**/data/*.csv
+**/data/*.zip
+.zed/
