@@ -30,7 +30,18 @@ func NewNafService(db *sql.DB) *nafService {
 }
 
 func (s *nafService) SearchByLabel(ctx context.Context, query string, limit, offset int) ([]NafCode, int, error) {
-	pattern := "%" + strings.ToLower(query) + "%"
+	words := strings.Fields(strings.ToLower(query))
+	if len(words) == 0 {
+		return nil, 0, nil
+	}
+
+	conditions := make([]string, len(words))
+	args := make([]interface{}, len(words))
+	for i, w := range words {
+		conditions[i] = fmt.Sprintf("label ILIKE $%d", i+1)
+		args[i] = "%" + w + "%"
+	}
+	where := strings.Join(conditions, " OR ")
 
 	var total int
 	var countErr error
@@ -40,12 +51,18 @@ func (s *nafService) SearchByLabel(ctx context.Context, query string, limit, off
 	go func() {
 		defer wg.Done()
 		countErr = s.db.QueryRowContext(ctx,
-			`SELECT COUNT(*) FROM naf_reference WHERE label ILIKE $1`, pattern).Scan(&total)
+			fmt.Sprintf(`SELECT COUNT(*) FROM naf_reference WHERE %s`, where), args...).Scan(&total)
 	}()
 
+	queryArgs := make([]interface{}, len(args)+2)
+	copy(queryArgs, args)
+	queryArgs[len(args)] = limit
+	queryArgs[len(args)+1] = offset
+
 	rows, err := s.db.QueryContext(ctx,
-		`SELECT code, label, section_code, section_label FROM naf_reference WHERE label ILIKE $1 ORDER BY code LIMIT $2 OFFSET $3`,
-		pattern, limit, offset)
+		fmt.Sprintf(`SELECT code, label, section_code, section_label FROM naf_reference WHERE %s ORDER BY code LIMIT $%d OFFSET $%d`,
+			where, len(args)+1, len(args)+2),
+		queryArgs...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("naf search failed: %w", err)
 	}
