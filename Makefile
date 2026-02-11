@@ -41,6 +41,12 @@ sirene-import:
 sirene-indexes:
 	cd sirene_france_backend && go run . indexes
 
+sirene-front-dev:
+	cd sirene_france_frontend && pnpm dev
+
+sirene-front-build:
+	cd sirene_france_frontend && pnpm build
+
 sirene-reimport:
 	docker compose -f sirene_france_backend/docker-compose.yml down -v
 	docker compose -f sirene_france_backend/docker-compose.yml up -d
@@ -102,6 +108,8 @@ help:
 	@echo "  make sirene-reimport Ré-import complet (supprime volumes + reimporte)"
 	@echo "  make sirene-sql      Ouvrir un terminal SQL (sans pager)"
 	@echo "  make sirene-count    Compter les lignes dans les tables"
+	@echo "  make sirene-front-dev   Lancer le frontend Next.js (port 3000)"
+	@echo "  make sirene-front-build Compiler le frontend Next.js"
 	@echo ""
 	@echo "Qualité:"
 	@echo "  make format          Formater tout le code Go (gofmt)"
