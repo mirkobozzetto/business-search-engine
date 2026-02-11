@@ -18,7 +18,7 @@ func ShowColumns(db *sql.DB, tableName string) error {
 	if err != nil {
 		return fmt.Errorf("error getting columns: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	fmt.Printf("\n📋 COLUMNS in %s:\n", strings.ToUpper(tableName))
 	for rows.Next() {
@@ -76,7 +76,7 @@ func ShowColumnValues(db *sql.DB, tableName, columnName string, limit int) error
 	if err != nil {
 		return fmt.Errorf("error querying column values: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	fmt.Printf("\n🔍 VALUES: %s.%s (top %d)\n", strings.ToUpper(tableName), strings.ToUpper(columnName), limit)
 	fmt.Printf("%-30s %s\n", "VALUE", "COUNT")

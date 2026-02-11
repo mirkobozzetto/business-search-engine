@@ -48,12 +48,14 @@ func SampleRows(db *sql.DB, tableName, columnName, searchValue string, limit int
 	if err != nil {
 		return fmt.Errorf("error getting columns: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []string
 	for rows.Next() {
 		var col string
-		if err := rows.Scan(&col); err != nil {continue}
+		if err := rows.Scan(&col); err != nil {
+			continue
+		}
 		columns = append(columns, col)
 	}
 
@@ -73,13 +75,15 @@ func SampleRows(db *sql.DB, tableName, columnName, searchValue string, limit int
 	if err != nil {
 		return fmt.Errorf("error sampling rows: %v", err)
 	}
-	defer sampleRows.Close()
+	defer func() { _ = sampleRows.Close() }()
 
 	fmt.Printf("\n📝 SAMPLE: %s.%s contains '%s' (first %d)\n", strings.ToUpper(tableName), strings.ToUpper(columnName), searchValue, limit)
 
 	// Print headers
 	for i, col := range columns {
-		if i > 0 { fmt.Print(" | ") }
+		if i > 0 {
+			fmt.Print(" | ")
+		}
 		fmt.Printf("%-20s", strings.ToUpper(col))
 	}
 	fmt.Println()
@@ -100,7 +104,9 @@ func SampleRows(db *sql.DB, tableName, columnName, searchValue string, limit int
 		}
 
 		for i, val := range values {
-			if i > 0 { fmt.Print(" | ") }
+			if i > 0 {
+				fmt.Print(" | ")
+			}
 
 			str := ""
 			if val.Valid {
@@ -135,12 +141,14 @@ func ExportToCSV(db *sql.DB, tableName, columnName, searchValue, filename string
 	if err != nil {
 		return fmt.Errorf("error getting columns: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []string
 	for rows.Next() {
 		var col string
-		if err := rows.Scan(&col); err != nil {continue}
+		if err := rows.Scan(&col); err != nil {
+			continue
+		}
 		columns = append(columns, col)
 	}
 
@@ -166,14 +174,14 @@ func ExportToCSV(db *sql.DB, tableName, columnName, searchValue, filename string
 	if err != nil {
 		return fmt.Errorf("error querying data for export: %v", err)
 	}
-	defer exportRows.Close()
+	defer func() { _ = exportRows.Close() }()
 
 	// Create CSV file
 	file, err := os.Create(filename)
 	if err != nil {
 		return fmt.Errorf("error creating file: %v", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	// Write CSV header
 	headerLine := strings.Join(columns, ",") + "\n"

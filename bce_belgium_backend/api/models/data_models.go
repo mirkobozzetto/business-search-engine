@@ -20,7 +20,7 @@ type ColumnValues struct {
 }
 
 type NaceSearchResult struct {
-	Query   string              `json:"query"`
-	Results []map[string]any    `json:"results"`
-	Meta    Meta                `json:"meta"`
+	Query   string           `json:"query"`
+	Results []map[string]any `json:"results"`
+	Meta    Meta             `json:"meta"`
 }

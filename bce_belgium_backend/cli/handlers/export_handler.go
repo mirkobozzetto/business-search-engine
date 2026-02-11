@@ -33,7 +33,7 @@ func HandlePreview(db *sql.DB, args []string) {
 	limit := 5
 
 	if len(args) > 1 {
-		fmt.Sscanf(args[1], "%d", &limit)
+		_, _ = fmt.Sscanf(args[1], "%d", &limit)
 	}
 
 	if err := query.PreviewTable(db, tableName, limit); err != nil {

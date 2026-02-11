@@ -54,7 +54,7 @@ func HandleColumnValues(db *sql.DB, args []string) {
 	limit := 20
 
 	if len(args) > 2 {
-		fmt.Sscanf(args[2], "%d", &limit)
+		_, _ = fmt.Sscanf(args[2], "%d", &limit)
 	}
 
 	if err := query.ShowColumnValues(db, tableName, columnName, limit); err != nil {

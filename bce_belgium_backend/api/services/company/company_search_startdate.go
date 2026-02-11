@@ -106,7 +106,7 @@ func (s *companyService) getAllEntityNumbersByStartDate(fromDate, toDate string)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entity numbers by start date: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entityNumbers []string
 	for rows.Next() {

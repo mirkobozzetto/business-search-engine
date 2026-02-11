@@ -19,7 +19,7 @@ func InsertBatch(tableName string, headers []string, batch [][]string) error {
 	if err != nil {
 		return fmt.Errorf("failed to connect for batch insert: %w", err)
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 
 	rows := make([][]any, len(batch))
 	for i, record := range batch {

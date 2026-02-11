@@ -17,7 +17,7 @@ func CreateChunks(csvPath string, chunkSize int) ([]CSVChunk, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot open file: %v", err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	reader := csv.NewReader(file)
 	reader.Comma = ','

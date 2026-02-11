@@ -51,14 +51,14 @@ func streamCSVReader(csvPath string, recordChan chan<- []string, wg *sync.WaitGr
 		fmt.Printf("❌ Reader error: %v\n", err)
 		return
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	bufferedReader := bufio.NewReaderSize(file, 4*1024*1024)
 	reader := csv.NewReader(bufferedReader)
 	reader.Comma = ','
 	reader.ReuseRecord = true
 
-	reader.Read()
+	_, _ = reader.Read()
 
 	lineCount := 0
 	for {

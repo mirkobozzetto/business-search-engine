@@ -21,7 +21,7 @@ func PreviewTable(db *sql.DB, tableName string, limit int) error {
 	if err != nil {
 		return fmt.Errorf("error previewing table: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	columns, err := rows.Columns()
 	if err != nil {
@@ -31,7 +31,9 @@ func PreviewTable(db *sql.DB, tableName string, limit int) error {
 	fmt.Printf("\n👀 PREVIEW: %s (first %d rows)\n", strings.ToUpper(tableName), limit)
 
 	for i, col := range columns {
-		if i > 0 { fmt.Print(" | ") }
+		if i > 0 {
+			fmt.Print(" | ")
+		}
 		fmt.Printf("%-15s", col)
 	}
 	fmt.Println()
@@ -50,7 +52,9 @@ func PreviewTable(db *sql.DB, tableName string, limit int) error {
 		}
 
 		for i, val := range values {
-			if i > 0 { fmt.Print(" | ") }
+			if i > 0 {
+				fmt.Print(" | ")
+			}
 
 			str := ""
 			if val.Valid {
@@ -83,13 +87,13 @@ func SearchTable(db *sql.DB, tableName, columnName, searchValue string, limit in
 	}
 
 	query := "SELECT " + columnName + " FROM " + tableName +
-	         " WHERE " + columnName + " ILIKE $1 LIMIT $2"
+		" WHERE " + columnName + " ILIKE $1 LIMIT $2"
 
 	rows, err := db.Query(query, "%"+searchValue+"%", limit)
 	if err != nil {
 		return fmt.Errorf("error searching table: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	fmt.Printf("\n🔎 SEARCH: %s.%s contains '%s'\n",
 		strings.ToUpper(tableName), strings.ToUpper(columnName), searchValue)

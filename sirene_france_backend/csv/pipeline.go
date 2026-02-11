@@ -50,7 +50,7 @@ func streamFromReader(reader io.Reader, recordChan chan<- []string, wg *sync.Wai
 	csvReader.ReuseRecord = true
 	csvReader.LazyQuotes = true
 
-	csvReader.Read()
+	_, _ = csvReader.Read()
 
 	lineCount := 0
 	for {

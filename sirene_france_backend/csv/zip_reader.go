@@ -96,7 +96,7 @@ func ProcessZIPFile(db *sql.DB, zipPath, tableName string) error {
 	if err != nil {
 		return fmt.Errorf("failed to open zip %s: %w", zipPath, err)
 	}
-	defer r.Close()
+	defer func() { _ = r.Close() }()
 
 	for _, f := range r.File {
 		if !strings.HasSuffix(strings.ToLower(f.Name), ".csv") {
@@ -109,7 +109,7 @@ func ProcessZIPFile(db *sql.DB, zipPath, tableName string) error {
 		if err != nil {
 			return fmt.Errorf("failed to open CSV in zip: %w", err)
 		}
-		defer rc.Close()
+		defer func() { _ = rc.Close() }()
 
 		csvReader := csv.NewReader(rc)
 		csvReader.Comma = ','
@@ -128,13 +128,13 @@ func ProcessZIPFile(db *sql.DB, zipPath, tableName string) error {
 			return err
 		}
 
-		rc.Close()
+		_ = rc.Close()
 
 		rc2, err := f.Open()
 		if err != nil {
 			return fmt.Errorf("failed to reopen CSV: %w", err)
 		}
-		defer rc2.Close()
+		defer func() { _ = rc2.Close() }()
 
 		totalLines, err := ProcessPipelineFromReader(rc2, tableName, cleanHeaders)
 		if err != nil {
@@ -154,7 +154,7 @@ func ProcessZIPFile(db *sql.DB, zipPath, tableName string) error {
 }
 
 func setupTable(db *sql.DB, tableName string, columns []string) error {
-	OptimizeForBulkInsert(db)
+	_ = OptimizeForBulkInsert(db)
 
 	dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
 	if _, err := db.Exec(dropSQL); err != nil {

@@ -19,7 +19,7 @@ func HandleSearch(db *sql.DB, args []string) {
 	limit := 10
 
 	if len(args) > 3 {
-		fmt.Sscanf(args[3], "%d", &limit)
+		_, _ = fmt.Sscanf(args[3], "%d", &limit)
 	}
 
 	if err := query.SearchTable(db, tableName, columnName, searchValue, limit); err != nil {
@@ -54,7 +54,7 @@ func HandleSample(db *sql.DB, args []string) {
 	limit := 10
 
 	if len(args) > 3 {
-		fmt.Sscanf(args[3], "%d", &limit)
+		_, _ = fmt.Sscanf(args[3], "%d", &limit)
 	}
 
 	if err := query.SampleRows(db, tableName, columnName, searchValue, limit); err != nil {

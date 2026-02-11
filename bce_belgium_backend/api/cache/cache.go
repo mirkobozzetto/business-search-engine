@@ -20,7 +20,7 @@ func (c *Cache) Get(key string) (any, bool) {
 	defer c.mu.RUnlock()
 	item, exists := c.data[key]
 	if !exists || time.Now().After(item.Expires) {
-			return nil, false
+		return nil, false
 	}
 	return item.Data, true
 }

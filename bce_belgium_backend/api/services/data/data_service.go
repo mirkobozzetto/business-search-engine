@@ -43,7 +43,7 @@ func (s *dataService) PreviewTable(ctx context.Context, tableName string, limit 
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	data, columns, err := utils.ScanRowsToMapsWithColumns(rows)
 	if err != nil {
@@ -80,7 +80,7 @@ func (s *dataService) GetColumnValues(ctx context.Context, tableName, columnName
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	values, err := utils.ScanColumnValues(rows)
 	if err != nil {

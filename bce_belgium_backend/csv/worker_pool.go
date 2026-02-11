@@ -70,7 +70,7 @@ func (wp *WorkerPool) worker(workerID int, chunkChan <-chan CSVChunk, resultChan
 		fmt.Printf("❌ Worker %d connection failed: %v\n", workerID, err)
 		return
 	}
-	defer conn.Close(context.Background())
+	defer func() { _ = conn.Close(context.Background()) }()
 
 	for chunk := range chunkChan {
 		start := time.Now()

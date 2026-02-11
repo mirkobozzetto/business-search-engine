@@ -38,7 +38,7 @@ func (s *tableService) ListAllTables(ctx context.Context) ([]models.Table, error
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tables: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var tables []models.Table
 	for rows.Next() {
@@ -107,7 +107,7 @@ func (s *tableService) GetTableColumns(ctx context.Context, tableName string) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to get columns: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []models.ColumnInfo
 	for rows.Next() {
@@ -138,7 +138,7 @@ func (s *tableService) GetCompleteStructure(ctx context.Context) ([]models.Table
 	if err != nil {
 		return nil, fmt.Errorf("failed to get tables: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var structures []models.TableStructure
 	for rows.Next() {
@@ -187,7 +187,7 @@ func (s *tableService) getTableFields(tableName string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get fields: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var fields []string
 	for rows.Next() {

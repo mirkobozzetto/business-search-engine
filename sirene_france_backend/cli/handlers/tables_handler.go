@@ -16,7 +16,7 @@ func HandleListTables(db *sql.DB) {
 		fmt.Printf("Error: %v\n", err)
 		return
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	fmt.Printf("%-30s %s\n", "TABLE", "COLUMNS")
 	fmt.Println("-------------------------------------------")
@@ -24,7 +24,7 @@ func HandleListTables(db *sql.DB) {
 	for rows.Next() {
 		var name string
 		var cols int
-		rows.Scan(&name, &cols)
+		_ = rows.Scan(&name, &cols)
 		fmt.Printf("%-30s %d\n", name, cols)
 	}
 }

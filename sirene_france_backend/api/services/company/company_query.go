@@ -105,7 +105,7 @@ func (s *companyService) searchCompanies(ctx context.Context, conditions []strin
 			defer wg.Done()
 			countErr = s.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount)
 			if countErr == nil {
-				s.cache.Set(countCacheKey, totalCount, 1*time.Hour)
+				_ = s.cache.Set(countCacheKey, totalCount, 1*time.Hour)
 			}
 		}()
 	}
@@ -114,7 +114,7 @@ func (s *companyService) searchCompanies(ctx context.Context, conditions []strin
 	if err != nil {
 		return nil, fmt.Errorf("search query failed: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	companies := make([]models.CompanyResult, 0, limit)
 	for rows.Next() {
@@ -158,6 +158,6 @@ func (s *companyService) searchCompanies(ctx context.Context, conditions []strin
 		},
 	}
 
-	s.cache.Set(pageCacheKey, result, 1*time.Hour)
+	_ = s.cache.Set(pageCacheKey, result, 1*time.Hour)
 	return result, nil
 }

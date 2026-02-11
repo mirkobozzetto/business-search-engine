@@ -48,6 +48,17 @@ sirene-reimport:
 	@sleep 5
 	cd sirene_france_backend && go run . all
 
+# === Qualité du code ===
+
+format:
+	cd bce_belgium_backend && gofmt -w .
+	cd sirene_france_backend && gofmt -w .
+	@echo "Code formaté."
+
+lint:
+	cd bce_belgium_backend && golangci-lint run ./...
+	cd sirene_france_backend && golangci-lint run ./...
+
 # === Les deux ===
 
 up-all:
@@ -91,6 +102,10 @@ help:
 	@echo "  make sirene-reimport Ré-import complet (supprime volumes + reimporte)"
 	@echo "  make sirene-sql      Ouvrir un terminal SQL (sans pager)"
 	@echo "  make sirene-count    Compter les lignes dans les tables"
+	@echo ""
+	@echo "Qualité:"
+	@echo "  make format          Formater tout le code Go (gofmt)"
+	@echo "  make lint            Linter tout le code Go (golangci-lint)"
 	@echo ""
 	@echo "Global:"
 	@echo "  make up-all          Démarrer les deux stacks"

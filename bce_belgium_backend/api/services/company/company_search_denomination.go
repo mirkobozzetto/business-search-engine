@@ -80,7 +80,7 @@ func (s *companyService) getAllEntityNumbersByDenomination(query string) ([]stri
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entity numbers by denomination: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entityNumbers []string
 	for rows.Next() {

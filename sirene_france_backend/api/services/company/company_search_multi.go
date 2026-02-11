@@ -62,7 +62,6 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	if criteria.TrancheEffectifs != "" {
 		conditions = append(conditions, fmt.Sprintf("u.tranche_effectifs_unite_legale = $%d", argN))
 		args = append(args, criteria.TrancheEffectifs)
-		argN++
 	}
 
 	if len(conditions) == 1 {

@@ -56,7 +56,7 @@ func (r *RedisCache) compressData(data []byte) ([]byte, error) {
 	writer := gzip.NewWriter(&buf)
 	_, err := writer.Write(data)
 	if err != nil {
-		writer.Close()
+		_ = writer.Close()
 		return nil, err
 	}
 	err = writer.Close()
@@ -71,6 +71,6 @@ func (r *RedisCache) decompressData(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 	return io.ReadAll(reader)
 }

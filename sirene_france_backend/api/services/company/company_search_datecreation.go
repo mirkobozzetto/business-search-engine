@@ -18,7 +18,6 @@ func (s *companyService) SearchByDateCreation(ctx context.Context, fromDate, toD
 	if toDate != "" {
 		conditions = append(conditions, fmt.Sprintf("u.date_creation_unite_legale <= $%d", argN))
 		args = append(args, toDate)
-		argN++
 	}
 
 	cacheKey := fmt.Sprintf("sirene:v2:datecreation:%s_%s", fromDate, toDate)

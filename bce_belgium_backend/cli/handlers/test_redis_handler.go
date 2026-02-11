@@ -92,5 +92,5 @@ func HandleTestRedis(db *sql.DB) {
 	fmt.Println("\n🎉 All Redis tests passed!")
 	fmt.Println("🚀 Ready for search funnel implementation!")
 
-	redisCache.Close()
+	_ = redisCache.Close()
 }

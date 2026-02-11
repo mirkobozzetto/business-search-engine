@@ -20,7 +20,7 @@ func ProcessCSVBlazingFast(db *sql.DB, csvPath, tableName string) error {
 	if err != nil {
 		return fmt.Errorf("impossible to open %s: %v", csvPath, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	bufferedReader := bufio.NewReaderSize(file, 2*1024*1024)
 	reader := csv.NewReader(bufferedReader)
@@ -55,7 +55,7 @@ func ProcessCSVBlazingFast(db *sql.DB, csvPath, tableName string) error {
 }
 
 func setupTable(db *sql.DB, tableName string, columns []string) error {
-	OptimizeForBulkInsert(db)
+	_ = OptimizeForBulkInsert(db)
 
 	dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
 	if _, err := db.Exec(dropSQL); err != nil {

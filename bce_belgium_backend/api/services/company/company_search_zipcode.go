@@ -80,7 +80,7 @@ func (s *companyService) getAllEntityNumbersByZipcode(zipcode string) ([]string,
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entity numbers by zipcode: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entityNumbers []string
 	for rows.Next() {

@@ -100,7 +100,7 @@ func (h *Handler) handleCSVExport(c *gin.Context, opts ExportOptions, result *Ex
 	}
 
 	if len(result.Data) == 0 {
-		writer.Write([]string{"No data found"})
+		_ = writer.Write([]string{"No data found"})
 		c.Status(http.StatusOK)
 		return
 	}

@@ -10,11 +10,11 @@ import (
 
 func ConnectPgxNative(cfg *config.Config) (*pgx.Conn, error) {
 	dsn := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
-	cfg.DBUser,
-	cfg.DBPassword,
-	cfg.DBHost,
-	cfg.DBPort,
-	cfg.DBName,
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBName,
 	)
 
 	conn, err := pgx.Connect(context.Background(), dsn)

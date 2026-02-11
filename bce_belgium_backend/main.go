@@ -15,7 +15,7 @@ func main() {
 	if err != nil {
 		slog.Error("❌ DB connection failed", "error", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	slog.Info("✅ DB connected")
 

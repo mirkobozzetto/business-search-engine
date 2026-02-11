@@ -59,7 +59,7 @@ func (s *exportService) getTableColumns(tableName string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get table columns: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var columns []string
 	for rows.Next() {
@@ -106,7 +106,7 @@ func (s *exportService) executeExportQuery(query string, args []any, columns []s
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var data []map[string]any
 	rowCount := 0

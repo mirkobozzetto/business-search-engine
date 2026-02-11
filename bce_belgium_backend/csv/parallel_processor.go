@@ -21,7 +21,7 @@ func ProcessCSVParallel(db *sql.DB, csvPath, tableName string) error {
 	if err != nil {
 		return fmt.Errorf("impossible to open %s: %v", csvPath, err)
 	}
-	defer file.Close()
+	defer func() { _ = file.Close() }()
 
 	reader := csv.NewReader(file)
 	reader.Comma = ','
@@ -35,7 +35,7 @@ func ProcessCSVParallel(db *sql.DB, csvPath, tableName string) error {
 
 	cleanHeaders, columns := PrepareHeaders(headers)
 
-	OptimizeForBulkInsert(db)
+	_ = OptimizeForBulkInsert(db)
 
 	dropSQL := fmt.Sprintf("DROP TABLE IF EXISTS %s", tableName)
 	if _, err := db.Exec(dropSQL); err != nil {

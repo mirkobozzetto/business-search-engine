@@ -86,7 +86,7 @@ func (r *RedisCache) compressData(data []byte) ([]byte, error) {
 
 	_, err := writer.Write(data)
 	if err != nil {
-		writer.Close()
+		_ = writer.Close()
 		return nil, err
 	}
 
@@ -103,7 +103,7 @@ func (r *RedisCache) decompressData(data []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer reader.Close()
+	defer func() { _ = reader.Close() }()
 
 	return io.ReadAll(reader)
 }

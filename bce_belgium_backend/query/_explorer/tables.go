@@ -18,7 +18,7 @@ func ListTables(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("error querying tables: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	fmt.Println("\n📊 TABLES:")
 	for rows.Next() {
@@ -61,7 +61,7 @@ func ShowStats(db *sql.DB) error {
 	if err != nil {
 		return fmt.Errorf("error getting stats: %v", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	fmt.Println("\n🚀 STATS:")
 	fmt.Printf("%-20s %s\n", "TABLE", "ROWS")

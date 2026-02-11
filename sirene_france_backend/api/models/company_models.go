@@ -1,13 +1,13 @@
 package models
 
 type CompanySearchCriteria struct {
-	NafCode           string `json:"naf_code,omitempty"`
-	Denomination      string `json:"denomination,omitempty"`
-	CodePostal        string `json:"code_postal,omitempty"`
-	Commune           string `json:"commune,omitempty"`
-	EtatAdministratif string `json:"etat_administratif,omitempty"`
-	DateCreationFrom  string `json:"date_creation_from,omitempty"`
-	DateCreationTo    string `json:"date_creation_to,omitempty"`
+	NafCode            string `json:"naf_code,omitempty"`
+	Denomination       string `json:"denomination,omitempty"`
+	CodePostal         string `json:"code_postal,omitempty"`
+	Commune            string `json:"commune,omitempty"`
+	EtatAdministratif  string `json:"etat_administratif,omitempty"`
+	DateCreationFrom   string `json:"date_creation_from,omitempty"`
+	DateCreationTo     string `json:"date_creation_to,omitempty"`
 	CategorieJuridique string `json:"categorie_juridique,omitempty"`
 	TrancheEffectifs   string `json:"tranche_effectifs,omitempty"`
 }

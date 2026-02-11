@@ -93,7 +93,7 @@ func (s *companyService) getAllEntityNumbersByNace(naceCode string) ([]string, e
 	if err != nil {
 		return nil, fmt.Errorf("failed to get entity numbers: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var entityNumbers []string
 	for rows.Next() {

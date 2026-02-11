@@ -91,7 +91,7 @@ func (s *companyService) enrichEnterpriseData(companyMap map[string]*models.Comp
 				}
 			}
 		}
-		rows.Close()
+		_ = rows.Close()
 	}
 
 	slog.Info("Enriched enterprise data", "companies", len(companyMap))
@@ -226,12 +226,12 @@ func (s *companyService) enrichTableData(companyMap map[string]*models.CompanyRe
 
 		columns, err := rows.Columns()
 		if err != nil {
-			rows.Close()
+			_ = rows.Close()
 			continue
 		}
 
 		data, err := utils.ScanRowsToMaps(rows, columns)
-		rows.Close()
+		_ = rows.Close()
 
 		if err != nil {
 			slog.Warn("Failed to scan rows", "table", tableName, "batch", i, "error", err)

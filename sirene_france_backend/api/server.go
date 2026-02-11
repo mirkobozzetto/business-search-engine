@@ -27,7 +27,7 @@ func StartAPIServer() {
 		slog.Error("DB connection failed", "error", err)
 		os.Exit(1)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	server := NewServer(db)
 	server.Run(":8081")
@@ -53,7 +53,7 @@ func NewServer(db *sql.DB) *Server {
 
 func (s *Server) Run(addr string) {
 	slog.Info("SIRENE France API", "addr", addr)
-	s.router.Run(addr)
+	_ = s.router.Run(addr)
 }
 
 func (s *Server) setupRoutes() {

@@ -56,7 +56,7 @@ func (s *searchService) SearchInColumn(ctx context.Context, tableName, columnNam
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []string
 	for rows.Next() {
@@ -150,7 +150,7 @@ func (s *searchService) SearchMultipleColumns(ctx context.Context, tableName str
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var results []string
 	for rows.Next() {
@@ -194,7 +194,7 @@ func (s *searchService) SearchNaceCode(ctx context.Context, searchValue string, 
 	if err != nil {
 		return nil, fmt.Errorf("database error: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	columns := []string{"nacecode", "activités", "libellé_fr", "omschrijving_nl"}
 	data, err := helperutils.ScanRowsToMaps(rows, columns)
