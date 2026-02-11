@@ -19,7 +19,7 @@ export default function CompanyDetailPage({ params }: { params: Promise<{ identi
   const { identifier } = use(params);
   const { data, isLoading, error } = useCompanyLookup(identifier);
 
-  const company = data?.data;
+  const company = data?.data?.results?.[0];
 
   return (
     <div className="space-y-6">
