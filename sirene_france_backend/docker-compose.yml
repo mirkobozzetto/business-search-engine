@@ -10,6 +10,16 @@ services:
       - "5434:5432"
     volumes:
       - sirene_postgres_data:/var/lib/postgresql/data
+    shm_size: '1g'
+    command: >
+      postgres
+      -c shared_buffers=512MB
+      -c effective_cache_size=1536MB
+      -c work_mem=64MB
+      -c maintenance_work_mem=256MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c max_parallel_workers_per_gather=2
 
   redis:
     image: redis:7

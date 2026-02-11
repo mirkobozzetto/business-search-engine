@@ -3,23 +3,10 @@ package company
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"sirene-importer/api/models"
-	"time"
 )
 
 func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria models.CompanySearchCriteria, limit int, offset int) (*models.CompanySearchResult, error) {
-	cacheKey := fmt.Sprintf("sirene:multi:%s:%s:%s:%s:%s:%s:%s:%s:%s",
-		criteria.NafCode, criteria.Denomination, criteria.CodePostal, criteria.Commune,
-		criteria.EtatAdministratif, criteria.DateCreationFrom, criteria.DateCreationTo,
-		criteria.CategorieJuridique, criteria.TrancheEffectifs)
-
-	var cached models.CompanySearchResult
-	if err := s.cache.Get(cacheKey, &cached); err == nil {
-		slog.Info("Cache hit", "key", cacheKey)
-		return buildSearchResult(&cached, limit, offset), nil
-	}
-
 	conditions := []string{"e.etablissement_siege = 'true'"}
 	var args []any
 	argN := 1
@@ -86,62 +73,10 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 		}, nil
 	}
 
-	where := ""
-	for i, cond := range conditions {
-		if i == 0 {
-			where = "WHERE " + cond
-		} else {
-			where += " AND " + cond
-		}
-	}
+	cacheKey := fmt.Sprintf("sirene:v2:multi:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+		criteria.NafCode, criteria.Denomination, criteria.CodePostal, criteria.Commune,
+		criteria.EtatAdministratif, criteria.DateCreationFrom, criteria.DateCreationTo,
+		criteria.CategorieJuridique, criteria.TrancheEffectifs)
 
-	baseQuery := "SELECT DISTINCT e.siren FROM etablissement e JOIN unite_legale u ON e.siren = u.siren " + where
-
-	countArgs := make([]any, len(args))
-	copy(countArgs, args)
-	var totalCount int
-	countQuery := "SELECT COUNT(*) FROM (" + baseQuery + ") sub"
-	if err := s.db.QueryRowContext(ctx, countQuery, countArgs...).Scan(&totalCount); err != nil {
-		return nil, fmt.Errorf("count query failed: %w", err)
-	}
-
-	dataQuery := baseQuery + fmt.Sprintf(" LIMIT $%d", argN)
-	args = append(args, MAX_COMPANIES)
-
-	rows, err := s.db.QueryContext(ctx, dataQuery, args...)
-	if err != nil {
-		return nil, fmt.Errorf("search query failed: %w", err)
-	}
-	defer rows.Close()
-
-	var sirens []string
-	for rows.Next() {
-		var siren string
-		if err := rows.Scan(&siren); err != nil {
-			continue
-		}
-		sirens = append(sirens, siren)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("rows error: %w", err)
-	}
-
-	if len(sirens) == 0 {
-		return &models.CompanySearchResult{
-			Criteria: criteria,
-			Results:  []models.CompanyResult{},
-			Meta:     models.Meta{Total: totalCount, Count: 0},
-		}, nil
-	}
-
-	companies := s.enrichCompanyData(ctx, sirens)
-
-	result := &models.CompanySearchResult{
-		Criteria: criteria,
-		Results:  companies,
-		Meta:     models.Meta{Total: totalCount},
-	}
-
-	s.cache.Set(cacheKey, result, 24*time.Hour)
-	return buildSearchResult(result, limit, offset), nil
+	return s.searchCompanies(ctx, conditions, args, limit, offset, cacheKey, criteria)
 }
