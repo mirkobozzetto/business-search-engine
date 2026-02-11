@@ -23,6 +23,11 @@ export function SearchBarHero() {
       return;
     }
 
+    if (/^\d{5}$/.test(trimmed)) {
+      router.push(`/search?code_postal=${trimmed}`);
+      return;
+    }
+
     router.push(`/search?denomination=${encodeURIComponent(trimmed)}`);
   }
 

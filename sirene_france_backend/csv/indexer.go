@@ -34,6 +34,11 @@ func CreateIndexes(db *sql.DB) error {
 		return fmt.Errorf("pg_trgm: %w", err)
 	}
 
+	fmt.Println("Activation de l'extension unaccent...")
+	if _, err := db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent"); err != nil {
+		return fmt.Errorf("unaccent: %w", err)
+	}
+
 	fmt.Printf("Creation de %d indexes...\n", len(indexes))
 	totalStart := time.Now()
 	errCount := 0

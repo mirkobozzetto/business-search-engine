@@ -9,7 +9,7 @@ import (
 func (s *companyService) SearchByCommune(ctx context.Context, commune string, limit, offset int) (*models.CompanySearchResult, error) {
 	conditions := []string{
 		"e.etablissement_siege = 'true'",
-		"e.libelle_commune_etablissement ILIKE $1",
+		"unaccent(e.libelle_commune_etablissement) ILIKE unaccent($1)",
 	}
 	args := []any{"%" + commune + "%"}
 	cacheKey := fmt.Sprintf("sirene:v2:commune:%s", commune)

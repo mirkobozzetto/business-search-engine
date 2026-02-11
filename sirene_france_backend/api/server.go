@@ -31,6 +31,8 @@ func StartAPIServer() {
 	}
 	defer func() { _ = db.Close() }()
 
+	_, _ = db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent")
+
 	server := NewServer(db)
 	server.Run(":8081")
 }
