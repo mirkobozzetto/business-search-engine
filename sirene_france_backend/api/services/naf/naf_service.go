@@ -38,7 +38,7 @@ func (s *nafService) SearchByLabel(ctx context.Context, query string, limit, off
 	conditions := make([]string, len(words))
 	args := make([]interface{}, len(words))
 	for i, w := range words {
-		conditions[i] = fmt.Sprintf("unaccent(label) ILIKE unaccent($%d)", i+1)
+		conditions[i] = fmt.Sprintf("immutable_unaccent(label) ILIKE immutable_unaccent($%d)", i+1)
 		args[i] = "%" + w + "%"
 	}
 	where := strings.Join(conditions, " OR ")

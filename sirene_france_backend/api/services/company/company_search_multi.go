@@ -30,7 +30,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	}
 
 	if criteria.Denomination != "" {
-		conditions = append(conditions, fmt.Sprintf("unaccent(u.denomination_unite_legale) ILIKE unaccent($%d)", argN))
+		conditions = append(conditions, fmt.Sprintf("immutable_unaccent(u.denomination_unite_legale) ILIKE immutable_unaccent($%d)", argN))
 		args = append(args, "%"+criteria.Denomination+"%")
 		argN++
 	}
@@ -42,7 +42,7 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	}
 
 	if criteria.Commune != "" {
-		conditions = append(conditions, fmt.Sprintf("unaccent(e.libelle_commune_etablissement) ILIKE unaccent($%d)", argN))
+		conditions = append(conditions, fmt.Sprintf("immutable_unaccent(e.libelle_commune_etablissement) ILIKE immutable_unaccent($%d)", argN))
 		args = append(args, "%"+criteria.Commune+"%")
 		argN++
 	}

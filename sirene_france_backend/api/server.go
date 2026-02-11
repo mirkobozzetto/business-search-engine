@@ -32,6 +32,9 @@ func StartAPIServer() {
 	defer func() { _ = db.Close() }()
 
 	_, _ = db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent")
+	_, _ = db.Exec(`CREATE OR REPLACE FUNCTION immutable_unaccent(text) RETURNS text AS $$
+		SELECT public.unaccent($1)
+	$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE`)
 
 	server := NewServer(db)
 	server.Run(":8081")

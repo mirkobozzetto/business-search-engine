@@ -26,6 +26,9 @@ var indexes = []struct {
 	{"idx_ul_siren_date", "CREATE INDEX IF NOT EXISTS idx_ul_siren_date ON unite_legale(siren, date_creation_unite_legale DESC)"},
 	{"idx_naf_ref_label_trgm", "CREATE INDEX IF NOT EXISTS idx_naf_ref_label_trgm ON naf_reference USING gin(label gin_trgm_ops)"},
 	{"idx_naf_ref_section", "CREATE INDEX IF NOT EXISTS idx_naf_ref_section ON naf_reference(section_code)"},
+	{"idx_ul_denom_unaccent_trgm", "CREATE INDEX IF NOT EXISTS idx_ul_denom_unaccent_trgm ON unite_legale USING gin(immutable_unaccent(denomination_unite_legale) gin_trgm_ops)"},
+	{"idx_etab_commune_unaccent_trgm", "CREATE INDEX IF NOT EXISTS idx_etab_commune_unaccent_trgm ON etablissement USING gin(immutable_unaccent(libelle_commune_etablissement) gin_trgm_ops)"},
+	{"idx_naf_label_unaccent_trgm", "CREATE INDEX IF NOT EXISTS idx_naf_label_unaccent_trgm ON naf_reference USING gin(immutable_unaccent(label) gin_trgm_ops)"},
 }
 
 func CreateIndexes(db *sql.DB) error {
@@ -37,6 +40,13 @@ func CreateIndexes(db *sql.DB) error {
 	fmt.Println("Activation de l'extension unaccent...")
 	if _, err := db.Exec("CREATE EXTENSION IF NOT EXISTS unaccent"); err != nil {
 		return fmt.Errorf("unaccent: %w", err)
+	}
+
+	fmt.Println("Creation de la fonction immutable_unaccent...")
+	if _, err := db.Exec(`CREATE OR REPLACE FUNCTION immutable_unaccent(text) RETURNS text AS $$
+		SELECT public.unaccent($1)
+	$$ LANGUAGE sql IMMUTABLE PARALLEL SAFE`); err != nil {
+		return fmt.Errorf("immutable_unaccent: %w", err)
 	}
 
 	fmt.Printf("Creation de %d indexes...\n", len(indexes))
