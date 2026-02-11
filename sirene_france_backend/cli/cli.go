@@ -36,6 +36,8 @@ func (c *CLI) Execute(args []string) {
 		handlers.HandleListTables(c.db)
 	case "indexes":
 		handlers.HandleCreateIndexes(c.db)
+	case "naf":
+		handlers.HandleImportNaf(c.db)
 	case "help", "--help", "-h":
 		handlers.ShowHelp()
 	default:

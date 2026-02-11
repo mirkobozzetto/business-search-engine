@@ -26,25 +26,9 @@ const companySelectFields = `
 	COALESCE(e.libelle_voie_etablissement, ''),
 	COALESCE(e.code_postal_etablissement, ''),
 	COALESCE(e.libelle_commune_etablissement, ''),
-	COALESCE(NULLIF(e.activite_principale_etablissement, ''), u.activite_principale_unite_legale, '')`
+	COALESCE(NULLIF(e.activite_principale_etablissement, ''), u.activite_principale_unite_legale, ''),
+	COALESCE(naf.label, '')`
 
-const companySelectFieldsNoCount = `
-	COALESCE(u.siren, ''),
-	COALESCE(u.denomination_unite_legale, ''),
-	COALESCE(u.sigle_unite_legale, ''),
-	COALESCE(u.categorie_juridique_unite_legale, ''),
-	COALESCE(u.date_creation_unite_legale, ''),
-	COALESCE(u.etat_administratif_unite_legale, ''),
-	COALESCE(u.tranche_effectifs_unite_legale, ''),
-	COALESCE(u.categorie_entreprise, ''),
-	COALESCE(e.siret, ''),
-	COALESCE(e.enseigne1_etablissement, ''),
-	COALESCE(e.numero_voie_etablissement, ''),
-	COALESCE(e.type_voie_etablissement, ''),
-	COALESCE(e.libelle_voie_etablissement, ''),
-	COALESCE(e.code_postal_etablissement, ''),
-	COALESCE(e.libelle_commune_etablissement, ''),
-	COALESCE(NULLIF(e.activite_principale_etablissement, ''), u.activite_principale_unite_legale, '')`
 
 func scanCompanyRow(scanner interface{ Scan(...any) error }) (models.CompanyResult, error) {
 	var c models.CompanyResult
@@ -54,7 +38,7 @@ func scanCompanyRow(scanner interface{ Scan(...any) error }) (models.CompanyResu
 		&c.CategorieEntreprise,
 		&c.Siret, &c.Enseigne, &c.NumeroVoie, &c.TypeVoie,
 		&c.LibelleVoie, &c.CodePostal, &c.LibelleCommune,
-		&c.NafCode,
+		&c.NafCode, &c.NafLabel,
 	)
 	return c, err
 }
@@ -72,6 +56,7 @@ func (s *companyService) searchCompanies(ctx context.Context, conditions []strin
 	dataQuery := fmt.Sprintf(`SELECT %s
 		FROM etablissement e
 		JOIN unite_legale u ON e.siren = u.siren
+		LEFT JOIN naf_reference naf ON COALESCE(NULLIF(e.activite_principale_etablissement, ''), u.activite_principale_unite_legale, '') = naf.code
 		%s
 		ORDER BY u.date_creation_unite_legale DESC
 		LIMIT $%d OFFSET $%d`, companySelectFields, where, argN, argN+1)

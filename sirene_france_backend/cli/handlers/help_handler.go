@@ -12,6 +12,7 @@ Commandes:
   api                    Démarrer le serveur API (port 8081)
   all                    Importer tous les fichiers ZIP depuis ../sirene_data
   indexes                Créer les indexes PostgreSQL (btree + trigram)
+  naf                    Importer les codes NAF depuis data/naf_codes.json
   tables                 Lister les tables de la base de données
   help                   Afficher cette aide
 

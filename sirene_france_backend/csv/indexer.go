@@ -24,6 +24,8 @@ var indexes = []struct {
 	{"idx_ul_date", "CREATE INDEX IF NOT EXISTS idx_ul_date ON unite_legale(date_creation_unite_legale)"},
 	{"idx_ul_denom_trgm", "CREATE INDEX IF NOT EXISTS idx_ul_denom_trgm ON unite_legale USING gin(denomination_unite_legale gin_trgm_ops)"},
 	{"idx_ul_siren_date", "CREATE INDEX IF NOT EXISTS idx_ul_siren_date ON unite_legale(siren, date_creation_unite_legale DESC)"},
+	{"idx_naf_ref_label_trgm", "CREATE INDEX IF NOT EXISTS idx_naf_ref_label_trgm ON naf_reference USING gin(label gin_trgm_ops)"},
+	{"idx_naf_ref_section", "CREATE INDEX IF NOT EXISTS idx_naf_ref_section ON naf_reference(section_code)"},
 }
 
 func CreateIndexes(db *sql.DB) error {

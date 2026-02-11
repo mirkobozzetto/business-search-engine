@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sirene-importer/api/services/company"
+	"sirene-importer/api/services/naf"
 	"sirene-importer/config"
 	"sirene-importer/database"
 	"time"
@@ -18,6 +19,7 @@ type Server struct {
 	router         *gin.Engine
 	logger         *slog.Logger
 	companyHandler *company.Handler
+	nafHandler     *naf.Handler
 }
 
 func StartAPIServer() {
@@ -41,11 +43,14 @@ func NewServer(db *sql.DB) *Server {
 	slog.SetDefault(logger)
 	companyService := company.NewCompanyService(db)
 	companyHandler := company.NewHandler(companyService)
+	nafService := naf.NewNafService(db)
+	nafHandler := naf.NewHandler(nafService)
 	s := &Server{
 		db:             db,
 		router:         gin.Default(),
 		logger:         logger,
 		companyHandler: companyHandler,
+		nafHandler:     nafHandler,
 	}
 	s.setupRoutes()
 	return s
@@ -71,6 +76,11 @@ func (s *Server) setupRoutes() {
 	companies.GET("/search/datecreation", s.companyHandler.SearchByDateCreation)
 	companies.GET("/search/multi", s.companyHandler.SearchMultiCriteria)
 	companies.GET("/lookup/:identifier", s.companyHandler.SearchByIdentifier)
+	nafGroup := api.Group("/naf")
+	nafGroup.GET("/search", s.nafHandler.SearchByLabel)
+	nafGroup.GET("/sections", s.nafHandler.ListSections)
+	nafGroup.GET("/code/:code", s.nafHandler.GetByCode)
+	nafGroup.GET("/section/:code", s.nafHandler.GetBySection)
 }
 
 func corsMiddleware() gin.HandlerFunc {

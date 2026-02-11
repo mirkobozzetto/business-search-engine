@@ -27,8 +27,9 @@ func (s *companyService) lookupBySiren(ctx context.Context, siren string) (*mode
 	query := fmt.Sprintf(`SELECT %s
 		FROM etablissement e
 		JOIN unite_legale u ON e.siren = u.siren
+		LEFT JOIN naf_reference naf ON COALESCE(NULLIF(e.activite_principale_etablissement, ''), u.activite_principale_unite_legale, '') = naf.code
 		WHERE e.etablissement_siege = 'true' AND u.siren = $1
-		LIMIT 1`, companySelectFieldsNoCount)
+		LIMIT 1`, companySelectFields)
 
 	c, err := scanCompanyRow(s.db.QueryRowContext(ctx, query, siren))
 	if err != nil {
@@ -51,8 +52,9 @@ func (s *companyService) lookupBySiret(ctx context.Context, siret string) (*mode
 	query := fmt.Sprintf(`SELECT %s
 		FROM etablissement e
 		JOIN unite_legale u ON e.siren = u.siren
+		LEFT JOIN naf_reference naf ON COALESCE(NULLIF(e.activite_principale_etablissement, ''), u.activite_principale_unite_legale, '') = naf.code
 		WHERE e.siret = $1
-		LIMIT 1`, companySelectFieldsNoCount)
+		LIMIT 1`, companySelectFields)
 
 	c, err := scanCompanyRow(s.db.QueryRowContext(ctx, query, siret))
 	if err != nil {

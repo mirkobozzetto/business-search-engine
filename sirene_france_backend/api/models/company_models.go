@@ -22,6 +22,7 @@ type CompanyResult struct {
 	TrancheEffectifs    string           `json:"tranche_effectifs,omitempty"`
 	CategorieEntreprise string           `json:"categorie_entreprise,omitempty"`
 	NafCode             string           `json:"naf_code,omitempty"`
+	NafLabel            string           `json:"naf_label,omitempty"`
 	Siret               string           `json:"siret,omitempty"`
 	Enseigne            string           `json:"enseigne,omitempty"`
 	NumeroVoie          string           `json:"numero_voie,omitempty"`
