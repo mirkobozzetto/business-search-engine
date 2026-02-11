@@ -16,11 +16,19 @@ interface CompanySearchFormProps {
   codePostal: string;
   commune: string;
   etatAdministratif: string;
+  dateCreationFrom: string;
+  dateCreationTo: string;
+  categorieJuridique: string;
+  trancheEffectifs: string;
   onDenominationChange: (v: string) => void;
   onNafCodeChange: (v: string) => void;
   onCodePostalChange: (v: string) => void;
   onCommuneChange: (v: string) => void;
   onEtatAdministratifChange: (v: string) => void;
+  onDateCreationFromChange: (v: string) => void;
+  onDateCreationToChange: (v: string) => void;
+  onCategorieJuridiqueChange: (v: string) => void;
+  onTrancheEffectifsChange: (v: string) => void;
   onSearch: () => void;
   onReset: () => void;
 }
@@ -31,17 +39,25 @@ export function CompanySearchForm({
   codePostal,
   commune,
   etatAdministratif,
+  dateCreationFrom,
+  dateCreationTo,
+  categorieJuridique,
+  trancheEffectifs,
   onDenominationChange,
   onNafCodeChange,
   onCodePostalChange,
   onCommuneChange,
   onEtatAdministratifChange,
+  onDateCreationFromChange,
+  onDateCreationToChange,
+  onCategorieJuridiqueChange,
+  onTrancheEffectifsChange,
   onSearch,
   onReset,
 }: CompanySearchFormProps) {
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="space-y-2">
           <label className="text-sm font-medium">Dénomination</label>
           <Input
@@ -84,6 +100,67 @@ export function CompanySearchForm({
               <SelectItem value="all">Tous</SelectItem>
               <SelectItem value="A">Active</SelectItem>
               <SelectItem value="C">Fermée</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Date de création (depuis)</label>
+          <Input
+            type="date"
+            value={dateCreationFrom}
+            onChange={(e) => onDateCreationFromChange(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Date de création (jusqu'à)</label>
+          <Input
+            type="date"
+            value={dateCreationTo}
+            onChange={(e) => onDateCreationToChange(e.target.value)}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Catégorie juridique</label>
+          <Select value={categorieJuridique} onValueChange={onCategorieJuridiqueChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Toutes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes</SelectItem>
+              <SelectItem value="1000">Entrepreneur individuel</SelectItem>
+              <SelectItem value="5498">EURL</SelectItem>
+              <SelectItem value="5499">SASU</SelectItem>
+              <SelectItem value="5505">SA</SelectItem>
+              <SelectItem value="5710">SAS</SelectItem>
+              <SelectItem value="5720">SARL</SelectItem>
+              <SelectItem value="6540">SCI</SelectItem>
+              <SelectItem value="9220">Association déclarée</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">Tranche effectifs</label>
+          <Select value={trancheEffectifs} onValueChange={onTrancheEffectifsChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Toutes" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Toutes</SelectItem>
+              <SelectItem value="00">0 salarié</SelectItem>
+              <SelectItem value="01">1-2</SelectItem>
+              <SelectItem value="02">3-5</SelectItem>
+              <SelectItem value="03">6-9</SelectItem>
+              <SelectItem value="11">10-19</SelectItem>
+              <SelectItem value="12">20-49</SelectItem>
+              <SelectItem value="21">50-99</SelectItem>
+              <SelectItem value="22">100-199</SelectItem>
+              <SelectItem value="31">200-249</SelectItem>
+              <SelectItem value="32">250-499</SelectItem>
+              <SelectItem value="41">500-999</SelectItem>
+              <SelectItem value="42">1000-1999</SelectItem>
+              <SelectItem value="51">2000-4999</SelectItem>
+              <SelectItem value="52">5000-9999</SelectItem>
+              <SelectItem value="53">10000+</SelectItem>
             </SelectContent>
           </Select>
         </div>

@@ -21,9 +21,13 @@ export default function SearchPage() {
   const [codePostal, setCodePostal] = useState(searchParams.get("code_postal") || "");
   const [commune, setCommune] = useState(searchParams.get("commune") || "");
   const [etatAdministratif, setEtatAdministratif] = useState(searchParams.get("etat_administratif") || "");
+  const [dateCreationFrom, setDateCreationFrom] = useState(searchParams.get("date_creation_from") || "");
+  const [dateCreationTo, setDateCreationTo] = useState(searchParams.get("date_creation_to") || "");
+  const [categorieJuridique, setCategorieJuridique] = useState(searchParams.get("categorie_juridique") || "");
+  const [trancheEffectifs, setTrancheEffectifs] = useState(searchParams.get("tranche_effectifs") || "");
   const [page, setPage] = useState(1);
   const [searchTriggered, setSearchTriggered] = useState(
-    !!(searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune"))
+    !!(searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune") || searchParams.get("date_creation_from") || searchParams.get("date_creation_to") || searchParams.get("categorie_juridique") || searchParams.get("tranche_effectifs"))
   );
 
   const offset = (page - 1) * DEFAULT_LIMIT;
@@ -36,6 +40,10 @@ export default function SearchPage() {
           code_postal: codePostal || undefined,
           commune: commune || undefined,
           etat_administratif: etatAdministratif && etatAdministratif !== "all" ? etatAdministratif : undefined,
+          date_creation_from: dateCreationFrom || undefined,
+          date_creation_to: dateCreationTo || undefined,
+          categorie_juridique: categorieJuridique && categorieJuridique !== "all" ? categorieJuridique : undefined,
+          tranche_effectifs: trancheEffectifs && trancheEffectifs !== "all" ? trancheEffectifs : undefined,
           limit: DEFAULT_LIMIT,
           offset,
         }
@@ -54,8 +62,12 @@ export default function SearchPage() {
     if (codePostal) params.set("code_postal", codePostal);
     if (commune) params.set("commune", commune);
     if (etatAdministratif && etatAdministratif !== "all") params.set("etat_administratif", etatAdministratif);
+    if (dateCreationFrom) params.set("date_creation_from", dateCreationFrom);
+    if (dateCreationTo) params.set("date_creation_to", dateCreationTo);
+    if (categorieJuridique && categorieJuridique !== "all") params.set("categorie_juridique", categorieJuridique);
+    if (trancheEffectifs && trancheEffectifs !== "all") params.set("tranche_effectifs", trancheEffectifs);
     router.push(`/search?${params.toString()}`, { scroll: false });
-  }, [denomination, nafCode, codePostal, commune, etatAdministratif, router]);
+  }, [denomination, nafCode, codePostal, commune, etatAdministratif, dateCreationFrom, dateCreationTo, categorieJuridique, trancheEffectifs, router]);
 
   function handleSearch() {
     setPage(1);
@@ -69,13 +81,17 @@ export default function SearchPage() {
     setCodePostal("");
     setCommune("");
     setEtatAdministratif("");
+    setDateCreationFrom("");
+    setDateCreationTo("");
+    setCategorieJuridique("");
+    setTrancheEffectifs("");
     setPage(1);
     setSearchTriggered(false);
     router.push("/search");
   }
 
   useEffect(() => {
-    const hasCriteria = !!(searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune"));
+    const hasCriteria = !!(searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune") || searchParams.get("date_creation_from") || searchParams.get("date_creation_to") || searchParams.get("categorie_juridique") || searchParams.get("tranche_effectifs"));
     if (hasCriteria) {
       setSearchTriggered(true);
     }
@@ -101,11 +117,19 @@ export default function SearchPage() {
             codePostal={codePostal}
             commune={commune}
             etatAdministratif={etatAdministratif}
+            dateCreationFrom={dateCreationFrom}
+            dateCreationTo={dateCreationTo}
+            categorieJuridique={categorieJuridique}
+            trancheEffectifs={trancheEffectifs}
             onDenominationChange={setDenomination}
             onNafCodeChange={setNafCode}
             onCodePostalChange={setCodePostal}
             onCommuneChange={setCommune}
             onEtatAdministratifChange={setEtatAdministratif}
+            onDateCreationFromChange={setDateCreationFrom}
+            onDateCreationToChange={setDateCreationTo}
+            onCategorieJuridiqueChange={setCategorieJuridique}
+            onTrancheEffectifsChange={setTrancheEffectifs}
             onSearch={handleSearch}
             onReset={handleReset}
           />

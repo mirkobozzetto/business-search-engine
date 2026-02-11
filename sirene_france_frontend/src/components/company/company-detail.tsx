@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { CompanyStatusBadge } from "./company-status-badge";
+import { getCategorieJuridiqueLabel, getTrancheEffectifsLabel, formatDateFr } from "@/lib/labels";
 import type { CompanyResult } from "@/types/company";
 
 interface CompanyDetailProps {
@@ -44,10 +45,10 @@ export function CompanyDetail({ company }: CompanyDetailProps) {
         <CardContent className="space-y-1">
           <DetailRow label="SIREN" value={company.siren} />
           <DetailRow label="SIRET" value={company.siret} />
-          <DetailRow label="Date de création" value={company.date_creation} />
-          <DetailRow label="Catégorie juridique" value={company.categorie_juridique} />
+          <DetailRow label="Date de création" value={formatDateFr(company.date_creation)} />
+          <DetailRow label="Catégorie juridique" value={company.categorie_juridique ? `${getCategorieJuridiqueLabel(company.categorie_juridique)} (${company.categorie_juridique})` : undefined} />
           <DetailRow label="Catégorie entreprise" value={company.categorie_entreprise} />
-          <DetailRow label="Tranche effectifs" value={company.tranche_effectifs} />
+          <DetailRow label="Tranche effectifs" value={getTrancheEffectifsLabel(company.tranche_effectifs)} />
         </CardContent>
       </Card>
 

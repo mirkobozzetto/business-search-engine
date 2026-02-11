@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { CompanyStatusBadge } from "./company-status-badge";
+import { formatDateFr } from "@/lib/labels";
 import type { CompanyResult } from "@/types/company";
 
 interface CompanyResultsTableProps {
@@ -27,6 +28,7 @@ export function CompanyResultsTable({ companies }: CompanyResultsTableProps) {
           <TableHead className="w-[130px]">SIREN</TableHead>
           <TableHead>Code NAF</TableHead>
           <TableHead>Commune</TableHead>
+          <TableHead className="w-[100px]">Création</TableHead>
           <TableHead className="w-[80px]">Statut</TableHead>
         </TableRow>
       </TableHeader>
@@ -64,6 +66,7 @@ export function CompanyResultsTable({ companies }: CompanyResultsTableProps) {
                 </span>
               )}
             </TableCell>
+            <TableCell className="text-sm">{formatDateFr(company.date_creation)}</TableCell>
             <TableCell>
               <CompanyStatusBadge status={company.etat_administratif} />
             </TableCell>
