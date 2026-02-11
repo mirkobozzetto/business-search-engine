@@ -16,6 +16,8 @@ export default function SearchPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  const [siren, setSiren] = useState(searchParams.get("siren") || "");
+  const [siret, setSiret] = useState(searchParams.get("siret") || "");
   const [denomination, setDenomination] = useState(searchParams.get("denomination") || "");
   const [nafCode, setNafCode] = useState(searchParams.get("naf_code") || "");
   const [codePostal, setCodePostal] = useState(searchParams.get("code_postal") || "");
@@ -27,7 +29,7 @@ export default function SearchPage() {
   const [trancheEffectifs, setTrancheEffectifs] = useState(searchParams.get("tranche_effectifs") || "");
   const [page, setPage] = useState(1);
   const [searchTriggered, setSearchTriggered] = useState(
-    !!(searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune") || searchParams.get("date_creation_from") || searchParams.get("date_creation_to") || searchParams.get("categorie_juridique") || searchParams.get("tranche_effectifs"))
+    !!(searchParams.get("siren") || searchParams.get("siret") || searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune") || searchParams.get("date_creation_from") || searchParams.get("date_creation_to") || searchParams.get("categorie_juridique") || searchParams.get("tranche_effectifs"))
   );
 
   const offset = (page - 1) * DEFAULT_LIMIT;
@@ -35,6 +37,8 @@ export default function SearchPage() {
   const { data, isLoading } = useCompanyMultiSearch(
     searchTriggered
       ? {
+          siren: siren || undefined,
+          siret: siret || undefined,
           denomination: denomination || undefined,
           naf_code: nafCode || undefined,
           code_postal: codePostal || undefined,
@@ -57,6 +61,8 @@ export default function SearchPage() {
 
   const updateURL = useCallback(() => {
     const params = new URLSearchParams();
+    if (siren) params.set("siren", siren);
+    if (siret) params.set("siret", siret);
     if (denomination) params.set("denomination", denomination);
     if (nafCode) params.set("naf_code", nafCode);
     if (codePostal) params.set("code_postal", codePostal);
@@ -67,7 +73,7 @@ export default function SearchPage() {
     if (categorieJuridique && categorieJuridique !== "all") params.set("categorie_juridique", categorieJuridique);
     if (trancheEffectifs && trancheEffectifs !== "all") params.set("tranche_effectifs", trancheEffectifs);
     router.push(`/search?${params.toString()}`, { scroll: false });
-  }, [denomination, nafCode, codePostal, commune, etatAdministratif, dateCreationFrom, dateCreationTo, categorieJuridique, trancheEffectifs, router]);
+  }, [siren, siret, denomination, nafCode, codePostal, commune, etatAdministratif, dateCreationFrom, dateCreationTo, categorieJuridique, trancheEffectifs, router]);
 
   function handleSearch() {
     setPage(1);
@@ -76,6 +82,8 @@ export default function SearchPage() {
   }
 
   function handleReset() {
+    setSiren("");
+    setSiret("");
     setDenomination("");
     setNafCode("");
     setCodePostal("");
@@ -91,7 +99,7 @@ export default function SearchPage() {
   }
 
   useEffect(() => {
-    const hasCriteria = !!(searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune") || searchParams.get("date_creation_from") || searchParams.get("date_creation_to") || searchParams.get("categorie_juridique") || searchParams.get("tranche_effectifs"));
+    const hasCriteria = !!(searchParams.get("siren") || searchParams.get("siret") || searchParams.get("denomination") || searchParams.get("naf_code") || searchParams.get("code_postal") || searchParams.get("commune") || searchParams.get("date_creation_from") || searchParams.get("date_creation_to") || searchParams.get("categorie_juridique") || searchParams.get("tranche_effectifs"));
     if (hasCriteria) {
       setSearchTriggered(true);
     }
@@ -112,6 +120,8 @@ export default function SearchPage() {
         </CardHeader>
         <CardContent>
           <CompanySearchForm
+            siren={siren}
+            siret={siret}
             denomination={denomination}
             nafCode={nafCode}
             codePostal={codePostal}
@@ -121,6 +131,8 @@ export default function SearchPage() {
             dateCreationTo={dateCreationTo}
             categorieJuridique={categorieJuridique}
             trancheEffectifs={trancheEffectifs}
+            onSirenChange={setSiren}
+            onSiretChange={setSiret}
             onDenominationChange={setDenomination}
             onNafCodeChange={setNafCode}
             onCodePostalChange={setCodePostal}

@@ -11,6 +11,18 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 	var args []any
 	argN := 1
 
+	if criteria.Siren != "" {
+		conditions = append(conditions, fmt.Sprintf("u.siren = $%d", argN))
+		args = append(args, criteria.Siren)
+		argN++
+	}
+
+	if criteria.Siret != "" {
+		conditions = append(conditions, fmt.Sprintf("e.siret = $%d", argN))
+		args = append(args, criteria.Siret)
+		argN++
+	}
+
 	if criteria.NafCode != "" {
 		conditions = append(conditions, fmt.Sprintf("e.activite_principale_etablissement = $%d", argN))
 		args = append(args, criteria.NafCode)
@@ -72,7 +84,8 @@ func (s *companyService) SearchMultiCriteria(ctx context.Context, criteria model
 		}, nil
 	}
 
-	cacheKey := fmt.Sprintf("sirene:v2:multi:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+	cacheKey := fmt.Sprintf("sirene:v2:multi:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s:%s",
+		criteria.Siren, criteria.Siret,
 		criteria.NafCode, criteria.Denomination, criteria.CodePostal, criteria.Commune,
 		criteria.EtatAdministratif, criteria.DateCreationFrom, criteria.DateCreationTo,
 		criteria.CategorieJuridique, criteria.TrancheEffectifs)

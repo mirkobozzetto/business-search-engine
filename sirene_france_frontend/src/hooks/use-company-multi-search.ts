@@ -6,6 +6,8 @@ import type { CompanyResult } from "@/types/company";
 import { DEFAULT_LIMIT } from "@/lib/constants";
 
 interface MultiSearchParams {
+  siren?: string;
+  siret?: string;
   denomination?: string;
   naf_code?: string;
   code_postal?: string;
@@ -21,6 +23,8 @@ interface MultiSearchParams {
 
 export function useCompanyMultiSearch(params: MultiSearchParams) {
   const hasAnyCriteria = !!(
+    params.siren ||
+    params.siret ||
     params.denomination ||
     params.naf_code ||
     params.code_postal ||
@@ -33,6 +37,8 @@ export function useCompanyMultiSearch(params: MultiSearchParams) {
   );
 
   const searchParams: Record<string, string> = {};
+  if (params.siren) searchParams.siren = params.siren;
+  if (params.siret) searchParams.siret = params.siret;
   if (params.denomination) searchParams.denomination = params.denomination;
   if (params.naf_code) searchParams.naf = params.naf_code;
   if (params.code_postal) searchParams.codepostal = params.code_postal;

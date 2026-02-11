@@ -11,6 +11,8 @@ import {
 } from "@/components/ui/select";
 
 interface CompanySearchFormProps {
+  siren: string;
+  siret: string;
   denomination: string;
   nafCode: string;
   codePostal: string;
@@ -20,6 +22,8 @@ interface CompanySearchFormProps {
   dateCreationTo: string;
   categorieJuridique: string;
   trancheEffectifs: string;
+  onSirenChange: (v: string) => void;
+  onSiretChange: (v: string) => void;
   onDenominationChange: (v: string) => void;
   onNafCodeChange: (v: string) => void;
   onCodePostalChange: (v: string) => void;
@@ -34,6 +38,8 @@ interface CompanySearchFormProps {
 }
 
 export function CompanySearchForm({
+  siren,
+  siret,
   denomination,
   nafCode,
   codePostal,
@@ -43,6 +49,8 @@ export function CompanySearchForm({
   dateCreationTo,
   categorieJuridique,
   trancheEffectifs,
+  onSirenChange,
+  onSiretChange,
   onDenominationChange,
   onNafCodeChange,
   onCodePostalChange,
@@ -163,6 +171,24 @@ export function CompanySearchForm({
               <SelectItem value="53">10000+</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">SIREN</label>
+          <Input
+            value={siren}
+            onChange={(e) => onSirenChange(e.target.value)}
+            placeholder="9 chiffres"
+            maxLength={9}
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium">SIRET</label>
+          <Input
+            value={siret}
+            onChange={(e) => onSiretChange(e.target.value)}
+            placeholder="14 chiffres"
+            maxLength={14}
+          />
         </div>
       </div>
       <div className="flex gap-2">

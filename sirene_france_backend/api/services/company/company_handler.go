@@ -136,6 +136,8 @@ func (h *Handler) SearchByEtatAdministratif(c *gin.Context) {
 
 func (h *Handler) SearchMultiCriteria(c *gin.Context) {
 	criteria := models.CompanySearchCriteria{
+		Siren:              c.Query("siren"),
+		Siret:              c.Query("siret"),
 		NafCode:            c.Query("naf"),
 		Denomination:       c.Query("denomination"),
 		CodePostal:         c.Query("codepostal"),

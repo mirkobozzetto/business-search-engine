@@ -1,6 +1,8 @@
 package models
 
 type CompanySearchCriteria struct {
+	Siren              string `json:"siren,omitempty"`
+	Siret              string `json:"siret,omitempty"`
 	NafCode            string `json:"naf_code,omitempty"`
 	Denomination       string `json:"denomination,omitempty"`
 	CodePostal         string `json:"code_postal,omitempty"`
