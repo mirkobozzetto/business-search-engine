@@ -16,3 +16,5 @@ sirene_data/
 **/data/*.csv
 **/data/*.zip
 .zed/
+sirene_france_backend/sirene-api
+bce_belgium_backend/bce-api
