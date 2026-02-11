@@ -1,41 +1,49 @@
 ---
 name: step-02-api
-description: Phase API - créer les services, handlers, routes et modèles via l'agent api-builder
+description: Phase API - services, handlers, routes et modeles via agent Snipper
 next_step: steps/step-03-review.md
 ---
 
-# Étape 2 : API et services
+# Etape 2 : API et services
 
-## Règles d'exécution
+## Regles d'execution
 
-- Utiliser UNIQUEMENT l'agent `api-builder` pour cette phase
-- Les tables créées en phase 1 sont disponibles
-- Chaque sous-tâche API est exécutée séquentiellement
+- Utiliser un agent `Snipper` avec les contraintes API dans le prompt
+- Les tables creees en phase 1 sont disponibles
 - Ne JAMAIS toucher aux fichiers `csv/` ou `cli/`
 
-## Séquence
+## Sequence
 
-### 1. Lancer l'agent api-builder
+### 1. Lancer l'agent
 
 Utiliser le Task tool avec :
 
 ```
-subagent_type: "api-builder"
-prompt: [description des tâches API de la phase 2]
+subagent_type: "Snipper"
+prompt: |
+  PERIMETRE : uniquement les fichiers dans api/
+  NE PAS toucher a csv/, cli/, main.go
+
+  Conventions du projet :
+  - Framework Gin, connexion pgx
+  - Services dans api/services/{domain}/
+  - Handlers dans api/handlers/
+  - Routes dans api/server.go
+  - Modeles dans api/models/
+  - Cache Redis gzip, TTL 1h, cle sirene:v2:{type}:{params}
+  - Pagination : limit (defaut 100, max 10000), offset
+  - Reponses : models.Success() ou models.Error()
+  - SQL : parametres positionnels ($1, $2), COALESCE sur nullable
+  - Pas de commentaires dans le code
+
+  Tables disponibles (creees en phase 1) :
+  [schema des tables]
+
+  Taches :
+  [liste des sous-taches API du plan]
 ```
 
-Le prompt doit inclure :
-
-- La liste exacte des sous-tâches API du plan
-- Les fichiers cibles pour chaque sous-tâche
-- Le schéma des tables créées en phase 1 (pour les jointures)
-- Les endpoints à créer avec leurs paramètres
-- Les modèles à modifier ou créer
-- Le format des réponses attendues
-
-### 2. Vérifier la compilation
-
-Après le retour de l'agent :
+### 2. Verifier la compilation
 
 ```bash
 cd sirene_france_backend && go build ./...
@@ -43,50 +51,26 @@ cd sirene_france_backend && go build ./...
 
 Si erreur : relancer l'agent avec le message d'erreur.
 
-### 3. Vérifier le lint
-
-```bash
-cd sirene_france_backend && golangci-lint run ./...
-```
-
-Si erreurs errcheck ou autres : relancer l'agent pour corriger.
-
-### 4. Mettre à jour le statut
+### 3. Mettre a jour le statut
 
 ```
 Phase 2 : API
-  ■ 2.1 : [Terminé]
-  ■ 2.2 : [Terminé]
+  ■ 2.1 : [Termine]
+  ■ 2.2 : [Termine]
 ```
 
-### 5. Point de validation
+### 4. Point de validation
 
 **Si `{validate_mode}` :**
-Présenter un résumé avec les nouveaux endpoints et demander validation.
-
-```
-Phase 2 terminée. Changements :
-  + api/services/naf/naf_service.go (nouveau)
-  + api/handlers/naf_handler.go (nouveau)
-  ~ api/server.go (modifié - 4 routes ajoutées)
-  ~ api/models/company_models.go (modifié - 2 champs ajoutés)
-
-Nouveaux endpoints :
-  GET /api/naf/sections
-  GET /api/naf/search?q={texte}
-  GET /api/naf/section/:code
-  GET /api/naf/code/:code
-
-Approuver pour passer à la review ?
-```
+Presenter un resume avec les nouveaux endpoints et demander validation.
 
 **Si `{auto_mode}` :**
-Passer directement à la review.
+Passer directement a la review.
 
-### 6. Sauvegarder (si save_mode)
+### 5. Sauvegarder (si save_mode)
 
-Écrire le rapport dans `.claude/output/feature-builder/{feature-id}/02-api-changes.md`.
+Ecrire le rapport dans `.claude/output/feature-builder/{feature-id}/02-api-changes.md`.
 
-### 7. Passer à l'étape suivante
+### 6. Passer a l'etape suivante
 
 Charger `steps/step-03-review.md`.

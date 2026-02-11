@@ -1,95 +1,80 @@
 ---
 name: step-03-review
-description: Phase review - validation complète par l'agent api-reviewer avec boucle de correction
+description: Phase review - validation par agent code-reviewer avec boucle de correction
 next_step: steps/step-04-finalize.md
 ---
 
-# Étape 3 : Review et correction
+# Etape 3 : Review et correction
 
-## Règles d'exécution
+## Regles d'execution
 
-- L'agent `api-reviewer` ne modifie JAMAIS de fichier
-- Si des corrections sont nécessaires, relancer l'agent approprié
-- Maximum 3 itérations de correction avant escalade humaine
+- L'agent `code-reviewer` ne modifie JAMAIS de fichier
+- Si des corrections sont necessaires, relancer un `Snipper`
+- Maximum 3 iterations de correction avant escalade humaine
 - La compilation et le lint DOIVENT passer
 
-## Séquence
+## Sequence
 
-### 1. Lancer l'agent api-reviewer
+### 1. Lancer la review
 
 Utiliser le Task tool avec :
 
 ```
-subagent_type: "api-reviewer"
+subagent_type: "code-reviewer"
 prompt: |
-  Valider l'ensemble des changements effectués pour la feature {feature_id}.
+  Valider l'ensemble des changements pour la feature {feature_id}.
 
-  Fichiers créés/modifiés :
+  Fichiers crees/modifies :
   [liste des fichiers des phases 1 et 2]
 
-  Exécuter :
-  1. go build ./...
-  2. go vet ./...
-  3. Review de chaque fichier modifié
+  Verifier :
+  1. go build ./... compile sans erreur
+  2. go vet ./... sans warning
+  3. Pas d'injection SQL (parametres positionnels $1, $2)
+  4. Erreurs gerees ou explicitement ignorees (_ = ...)
+  5. Cache Redis coherent (cles, TTL)
+  6. Patterns existants respectes
+  7. Pas de commentaires dans le code
 
-  Produire un rapport avec verdict APPROUVÉ ou BLOQUÉ.
+  Produire un rapport avec verdict APPROUVE ou BLOQUE.
 ```
 
 ### 2. Analyser le verdict
 
-**Si APPROUVÉ :**
-→ Passer à l'étape 4 (finalisation)
+**Si APPROUVE :**
+Passer a l'etape 4 (finalisation)
 
-**Si BLOQUÉ :**
-→ Analyser les actions requises
-→ Identifier l'agent responsable (db-architect ou api-builder)
-→ Relancer l'agent avec les corrections demandées
-→ Incrémenter `{review_iterations}`
-→ Relancer le reviewer
+**Si BLOQUE :**
+Analyser les actions requises, relancer un `Snipper` avec les corrections.
 
 ### 3. Boucle de correction
 
 ```
-Tant que verdict == BLOQUÉ et review_iterations < 3 :
-    1. Identifier les fichiers à corriger
-    2. Si fichier dans csv/ ou cli/ → relancer db-architect
-    3. Si fichier dans api/ → relancer api-builder
+Tant que verdict == BLOQUE et review_iterations < 3 :
+    1. Identifier les fichiers a corriger
+    2. Si fichier dans csv/ ou cli/ → Snipper avec perimetre DB
+    3. Si fichier dans api/ → Snipper avec perimetre API
     4. Recompiler : go build ./...
-    5. Relancer api-reviewer
+    5. Relancer code-reviewer
     6. review_iterations++
 
-Si review_iterations >= 3 et toujours BLOQUÉ :
-    → Présenter le rapport à l'utilisateur
-    → Demander comment procéder
+Si review_iterations >= 3 et toujours BLOQUE :
+    Presenter le rapport a l'utilisateur
+    Demander comment proceder
 ```
 
 ### 4. Point de validation finale
 
 **Si `{validate_mode}` :**
-Présenter le rapport de review à l'utilisateur.
-
-```
-Review terminée après {review_iterations} itération(s).
-
-Verdict : APPROUVÉ
-
-Compilation : OK
-Architecture : OK
-Sécurité SQL : OK
-Gestion erreurs : OK
-Cache : OK
-Conventions : OK
-
-Passer à la finalisation ?
-```
+Presenter le rapport de review a l'utilisateur.
 
 **Si `{auto_mode}` :**
-Si APPROUVÉ, passer directement à la finalisation.
+Si APPROUVE, passer directement a la finalisation.
 
 ### 5. Sauvegarder (si save_mode)
 
-Écrire le rapport dans `.claude/output/feature-builder/{feature-id}/03-review.md`.
+Ecrire le rapport dans `.claude/output/feature-builder/{feature-id}/03-review.md`.
 
-### 6. Passer à l'étape suivante
+### 6. Passer a l'etape suivante
 
 Charger `steps/step-04-finalize.md`.

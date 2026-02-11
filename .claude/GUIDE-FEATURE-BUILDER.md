@@ -204,51 +204,17 @@ Un résumé complet est affiché avec tous les changements, les nouveaux endpoin
 
 ---
 
-## Les trois agents
+## Les agents utilises
 
-### db-architect
+Le workflow utilise les agents integres de Claude Code, pas d'agents custom. Les contraintes de perimetre sont passees dans le prompt du Task tool.
 
-**Rôle :** Tout ce qui touche à la base de données.
+| Phase | Agent integre | Perimetre |
+| ----- | ------------- | --------- |
+| DB | `Snipper` | `csv/`, `cli/`, `database/` |
+| API | `Snipper` | `api/` |
+| Review | `code-reviewer` | Lecture seule |
 
-| Responsabilité       | Fichiers                          |
-| -------------------- | --------------------------------- |
-| Schémas de tables    | `csv/*.go`                        |
-| Indexes PostgreSQL   | `csv/indexer.go`                  |
-| Loaders de données   | `csv/*.go`                        |
-| Commandes CLI        | `cli/handlers/*.go`, `cli/cli.go` |
-| Helpers de connexion | `database/*.go`                   |
-
-**Interdit de toucher :** `api/`, `main.go`
-
-### api-builder
-
-**Rôle :** Tout ce qui touche à l'API REST.
-
-| Responsabilité     | Fichiers               |
-| ------------------ | ---------------------- |
-| Modèles de données | `api/models/*.go`      |
-| Services métier    | `api/services/**/*.go` |
-| Handlers HTTP      | `api/handlers/*.go`    |
-| Routes             | `api/server.go`        |
-| Cache              | `api/cache/*.go`       |
-
-**Interdit de toucher :** `csv/`, `cli/`, `main.go`
-
-### api-reviewer
-
-**Rôle :** Valider le travail des deux autres agents.
-
-| Vérification     | Commande                              |
-| ---------------- | ------------------------------------- |
-| Compilation      | `go build ./...`                      |
-| Analyse statique | `go vet ./...`                        |
-| Revue de code    | Lecture de tous les fichiers modifiés |
-
-**Ne modifie jamais aucun fichier.** Il lit et produit un rapport, c'est tout.
-
-### Pourquoi cette séparation ?
-
-Deux agents ne doivent jamais toucher le même fichier en parallèle, sinon ils s'écrasent mutuellement. En isolant les périmètres par couche (DB / API / Review), on garantit qu'il n'y a jamais de conflit.
+Les perimetres sont isoles pour eviter que deux agents ecrivent dans le meme fichier.
 
 ---
 
@@ -258,9 +224,9 @@ Deux agents ne doivent jamais toucher le même fichier en parallèle, sinon ils 
 
 ```
 Phase 0 → tu approuves le plan
-Phase 1 → db-architect travaille → tu approuves
-Phase 2 → api-builder travaille → tu approuves
-Phase 3 → api-reviewer vérifie → tu approuves
+Phase 1 → Snipper (DB) travaille → tu approuves
+Phase 2 → Snipper (API) travaille → tu approuves
+Phase 3 → code-reviewer verifie → tu approuves
 Phase 4 → tu décides de commit ou pas
 ```
 
@@ -274,9 +240,9 @@ Tu gardes le contrôle total. A chaque étape, tu peux :
 
 ```
 Phase 0 → plan créé automatiquement
-Phase 1 → db-architect travaille → api-reviewer valide automatiquement
-Phase 2 → api-builder travaille → api-reviewer valide automatiquement
-Phase 3 → api-reviewer vérifie → approuvé automatiquement si OK
+Phase 1 → Snipper (DB) travaille → code-reviewer valide automatiquement
+Phase 2 → Snipper (API) travaille → code-reviewer valide automatiquement
+Phase 3 → code-reviewer verifie → approuve automatiquement si OK
 Phase 4 → tu décides de commit ou pas (toujours manuel)
 ```
 
@@ -293,9 +259,9 @@ Quand le flag `-s` est activé, chaque phase produit un rapport sauvegardé :
 ```
 .claude/output/feature-builder/recherche-semantique-naf/
 ├── 00-plan.md          # Plan avec toutes les tâches
-├── 01-db-changes.md    # Ce que db-architect a fait
-├── 02-api-changes.md   # Ce que api-builder a fait
-├── 03-review.md        # Rapport du reviewer
+├── 01-db-changes.md    # Rapport phase DB
+├── 02-api-changes.md   # Rapport phase API
+├── 03-review.md        # Rapport de review
 └── 04-summary.md       # Résumé final
 ```
 
@@ -334,24 +300,7 @@ Ce que le workflow va faire :
 
 ---
 
-## Faire évoluer le workflow
-
-### Ajouter un nouvel agent
-
-1. Créer le fichier `.claude/agents/mon-agent.md` avec le frontmatter :
-
-```yaml
----
-name: mon-agent
-description: Ce que fait cet agent et quand l'utiliser.
-tools: Read, Edit, Write, Bash, Grep, Glob
-model: sonnet
----
-Instructions de l'agent...
-```
-
-2. Ajouter l'agent dans la section `<agents>` de `SKILL.md`
-3. Créer une étape dédiée dans `steps/` si nécessaire
+## Faire evoluer le workflow
 
 ### Ajouter une phase
 

@@ -67,15 +67,15 @@ save_mode: false
 
 <agents>
 
-Ce workflow utilise trois agents spécialisés définis dans `.claude/agents/` :
+Ce workflow utilise les agents integres de Claude Code :
 
-| Agent | Rôle | Fichiers autorisés |
-|-------|------|-------------------|
-| **db-architect** | Tables, indexes, loaders, CLI | `csv/`, `cli/`, `database/` |
-| **api-builder** | Services, handlers, routes, modèles | `api/` |
-| **api-reviewer** | Validation, compilation, review | Lecture seule + `go build` |
+| Agent | Type | Role |
+|-------|------|------|
+| **DB** | `Snipper` | Tables, indexes, loaders, CLI (perimetre : `csv/`, `cli/`, `database/`) |
+| **API** | `Snipper` | Services, handlers, routes, modeles (perimetre : `api/`) |
+| **Review** | `code-reviewer` | Validation, compilation, review (lecture seule) |
 
-Les agents ne partagent jamais les mêmes fichiers pour éviter les conflits.
+Les perimetres de fichiers sont definis dans le prompt de chaque agent pour eviter les conflits.
 
 </agents>
 
@@ -89,24 +89,24 @@ Phase 0 : Initialisation
     → Identifier les agents nécessaires
     → Créer le plan avec dépendances
 
-Phase 1 : Base de données (db-architect)
-    → Créer les tables et indexes
-    → Créer les loaders de données
+Phase 1 : Base de donnees (Snipper)
+    → Creer les tables et indexes
+    → Creer les loaders de donnees
     → Ajouter les commandes CLI
     → POINT DE VALIDATION
 
-Phase 2 : API et services (api-builder)
-    → Créer les modèles
-    → Créer les services
-    → Créer les handlers et routes
-    → Enrichir les requêtes existantes
+Phase 2 : API et services (Snipper)
+    → Creer les modeles
+    → Creer les services
+    → Creer les handlers et routes
+    → Enrichir les requetes existantes
     → POINT DE VALIDATION
 
-Phase 3 : Review et correction (api-reviewer → agents concernés)
-    → Vérifier compilation
-    → Vérifier cohérence architecturale
-    → Vérifier sécurité SQL
-    → Si BLOQUÉ : renvoyer aux agents pour correction
+Phase 3 : Review et correction (code-reviewer → Snipper si corrections)
+    → Verifier compilation
+    → Verifier coherence architecturale
+    → Verifier securite SQL
+    → Si BLOQUE : renvoyer au Snipper pour correction
     → POINT DE VALIDATION
 
 Phase 4 : Finalisation
@@ -203,8 +203,7 @@ Quand `{save_mode}` = true :
 
 Ce workflow est conçu pour évoluer :
 
-1. **Ajouter un agent** : créer un fichier `.claude/agents/{nom}.md` et l'ajouter à la section `<agents>`
-2. **Ajouter une phase** : créer un fichier `steps/step-0N-*.md` et l'insérer dans le workflow
+1. **Ajouter une phase** : creer un fichier `steps/step-0N-*.md` et l'inserer dans le workflow
 3. **Modifier la validation** : ajuster les seuils dans `<validation_gates>`
 4. **Ajouter des sous-tâches** : étendre `<task_decomposition>` selon les besoins
 
