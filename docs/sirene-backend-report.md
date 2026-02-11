@@ -29,12 +29,12 @@ sirene_france_backend/
 
 ### Stack technique
 
-| Composant   | Technologie       | Port |
-|-------------|-------------------|------|
-| API         | Go 1.24 + Gin     | 8081 |
-| Base        | PostgreSQL 15     | 5434 |
-| Cache       | Redis 7           | 6380 |
-| Import      | pgx CopyFrom      | -    |
+| Composant | Technologie   | Port |
+| --------- | ------------- | ---- |
+| API       | Go 1.24 + Gin | 8081 |
+| Base      | PostgreSQL 15 | 5434 |
+| Cache     | Redis 7       | 6380 |
+| Import    | pgx CopyFrom  | -    |
 
 ### Docker
 
@@ -56,11 +56,11 @@ sirene_redis     -> port 6380
 
 ### Volumes
 
-| Fichier                        | Lignes     | Colonnes | Taille ZIP |
-|-------------------------------|-----------|----------|------------|
-| StockUniteLegale_utf8.zip     | 29 216 651 | 35       | 897 Mo     |
-| StockEtablissement_utf8.zip   | 42 716 292 | 54       | 2.6 Go     |
-| **Total**                     | **71 932 943** | -    | **3.5 Go** |
+| Fichier                     | Lignes         | Colonnes | Taille ZIP |
+| --------------------------- | -------------- | -------- | ---------- |
+| StockUniteLegale_utf8.zip   | 29 216 651     | 35       | 897 Mo     |
+| StockEtablissement_utf8.zip | 42 716 292     | 54       | 2.6 Go     |
+| **Total**                   | **71 932 943** | -        | **3.5 Go** |
 
 ### Tables PostgreSQL
 
@@ -82,8 +82,8 @@ Colonnes cles: `siren`, `siret`, `etablissement_siege`,
 ### Conversion des colonnes
 
 Les CSV SIRENE utilisent le camelCase (`denominationUniteLegale`).
-Le pipeline convertit automatiquement en snake_case (`denomination_unite_legale`)
-via regex `([a-z0-9])([A-Z])` -> `\1_\2`.
+Le pipeline convertit automatiquement en snake*case (`denomination_unite_legale`)
+via regex `([a-z0-9])([A-Z])` -> `\1*\2`.
 
 ---
 
@@ -92,6 +92,7 @@ via regex `([a-z0-9])([A-Z])` -> `\1_\2`.
 ### Mecanisme ZIP Streaming
 
 L'import lit les CSV directement depuis les ZIP sans extraction sur disque :
+
 1. `zip.OpenReader()` ouvre le ZIP
 2. Premiere passe: lit les headers, cree la table PostgreSQL
 3. Seconde passe: `f.Open()` retourne un `io.ReadCloser` decompresse
@@ -103,17 +104,18 @@ L'import lit les CSV directement depuis les ZIP sans extraction sur disque :
 ZIP -> CSV Reader -> Channel (10k buffer) -> 8 Workers -> pgx CopyFrom (batch 200k)
 ```
 
-| Parametre        | Valeur    |
-|-----------------|-----------|
-| Workers         | min(CPU, 8) |
-| Buffer channel  | 10 000    |
-| Batch size      | 200 000   |
-| Buffer CSV      | 4 Mo      |
-| LazyQuotes      | true      |
+| Parametre      | Valeur      |
+| -------------- | ----------- |
+| Workers        | min(CPU, 8) |
+| Buffer channel | 10 000      |
+| Batch size     | 200 000     |
+| Buffer CSV     | 4 Mo        |
+| LazyQuotes     | true        |
 
 ### Performance observee
 
 Import de `StockEtablissement_utf8.zip` (42.7M lignes):
+
 - ~30M lignes en ~10 minutes
 - ~50 000 lignes/seconde
 - Utilisation CPU: ~270% (multi-core)
@@ -125,26 +127,28 @@ Import de `StockEtablissement_utf8.zip` (42.7M lignes):
 
 ### Routes disponibles
 
-| Methode | Route | Parametre | Description |
-|---------|-------|-----------|-------------|
-| GET | `/api/health` | - | Health check |
-| GET | `/api/companies/search/naf` | `?code=62.01Z&limit=100` | Recherche par code NAF |
-| GET | `/api/companies/search/denomination` | `?q=google&limit=100` | Recherche par nom (multi-mots) |
-| GET | `/api/companies/search/codepostal` | `?q=75001&limit=100` | Recherche par code postal |
-| GET | `/api/companies/search/commune` | `?q=paris&limit=100` | Recherche par commune |
-| GET | `/api/companies/search/etatadministratif` | `?q=A&limit=100` | Recherche par etat (A=actif, C=cesse) |
-| GET | `/api/companies/search/datecreation` | `?from=2020-01-01&to=2024-12-31&limit=100` | Recherche par date de creation |
-| GET | `/api/companies/search/multi` | `?naf=62.01Z&commune=paris&etat=A&limit=100` | Recherche multi-criteres |
+| Methode | Route                                     | Parametre                                    | Description                           |
+| ------- | ----------------------------------------- | -------------------------------------------- | ------------------------------------- |
+| GET     | `/api/health`                             | -                                            | Health check                          |
+| GET     | `/api/companies/search/naf`               | `?code=62.01Z&limit=100`                     | Recherche par code NAF                |
+| GET     | `/api/companies/search/denomination`      | `?q=google&limit=100`                        | Recherche par nom (multi-mots)        |
+| GET     | `/api/companies/search/codepostal`        | `?q=75001&limit=100`                         | Recherche par code postal             |
+| GET     | `/api/companies/search/commune`           | `?q=paris&limit=100`                         | Recherche par commune                 |
+| GET     | `/api/companies/search/etatadministratif` | `?q=A&limit=100`                             | Recherche par etat (A=actif, C=cesse) |
+| GET     | `/api/companies/search/datecreation`      | `?from=2020-01-01&to=2024-12-31&limit=100`   | Recherche par date de creation        |
+| GET     | `/api/companies/search/multi`             | `?naf=62.01Z&commune=paris&etat=A&limit=100` | Recherche multi-criteres              |
 
 ### Recherche multi-mots (denomination)
 
 La recherche par denomination supporte le multi-mots avec logique AND :
+
 - `?q=google france` -> `denomination ILIKE '%google%' AND denomination ILIKE '%france%'`
 - Equivalent du `buildMultiWordSearch()` de BCE Belgium
 
 ### Recherche multi-criteres
 
 Fonctionne par intersection de resultats caches :
+
 1. Chaque critere lance une recherche individuelle (avec cache Redis)
 2. Les resultats sont croises (intersection sur SIREN)
 3. Le plus petit dataset est utilise comme base de filtrage
@@ -163,13 +167,13 @@ Batch de 1000 SIRENs par requete avec placeholders `$1, $2, ..., $1000`.
 
 ### Cache Redis
 
-| Parametre | Valeur |
-|-----------|--------|
-| TTL | 24 heures |
-| Compression | gzip (seuil: 1 Ko) |
-| Max decompresse | 200 Mo |
-| Max compresse | 50 Mo |
-| Prefixe cle | `sirene:full:{type}:{valeur}` |
+| Parametre       | Valeur                        |
+| --------------- | ----------------------------- |
+| TTL             | 24 heures                     |
+| Compression     | gzip (seuil: 1 Ko)            |
+| Max decompresse | 200 Mo                        |
+| Max compresse   | 50 Mo                         |
+| Prefixe cle     | `sirene:full:{type}:{valeur}` |
 
 ---
 
@@ -177,74 +181,74 @@ Batch de 1000 SIRENs par requete avec placeholders `$1, $2, ..., $1000`.
 
 ### Donnees source
 
-| Aspect | BCE Belgium | SIRENE France |
-|--------|------------|---------------|
-| Source | BCE (SPF Economie) | INSEE (data.gouv.fr) |
-| Tables | 10 (enterprise, denomination, address, contact, activity, establishment, branch, code, nacecode, status) | 2 (unite_legale, etablissement) |
-| Identifiant | EntityNumber | SIREN / SIRET |
-| Code activite | NACE-BEL (5 chiffres) | NAF rev2 (XX.XXZ) |
-| Lignes totales | ~15M | ~72M |
-| Contacts | Email, telephone, site web, fax | Aucun |
-| Dirigeants | Non | Non (disponible via INPI) |
-| Donnees financieres | Non | Non |
+| Aspect              | BCE Belgium                                                                                              | SIRENE France                   |
+| ------------------- | -------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| Source              | BCE (SPF Economie)                                                                                       | INSEE (data.gouv.fr)            |
+| Tables              | 10 (enterprise, denomination, address, contact, activity, establishment, branch, code, nacecode, status) | 2 (unite_legale, etablissement) |
+| Identifiant         | EntityNumber                                                                                             | SIREN / SIRET                   |
+| Code activite       | NACE-BEL (5 chiffres)                                                                                    | NAF rev2 (XX.XXZ)               |
+| Lignes totales      | ~15M                                                                                                     | ~72M                            |
+| Contacts            | Email, telephone, site web, fax                                                                          | Aucun                           |
+| Dirigeants          | Non                                                                                                      | Non (disponible via INPI)       |
+| Donnees financieres | Non                                                                                                      | Non                             |
 
 ### Endpoints de recherche
 
-| Fonctionnalite | BCE Belgium | SIRENE France |
-|---------------|------------|---------------|
-| Recherche par code activite | `/search/nace?code=` | `/search/naf?code=` |
-| Recherche par nom | `/search/denomination?q=` | `/search/denomination?q=` |
-| Recherche par code postal | `/search/zipcode?q=` | `/search/codepostal?q=` |
-| Recherche par commune | Non | `/search/commune?q=` |
-| Recherche par date creation | `/search/startdate?from=&to=` | `/search/datecreation?from=&to=` |
-| Recherche par statut | Non (via multi) | `/search/etatadministratif?q=` |
-| Multi-criteres | `/search/multi` | `/search/multi` |
-| Multi-mots (nom) | Oui (AND logic) | Oui (AND logic) |
-| Recherche generique | `/search/:table/:column` | Non |
-| Preview table | `/data/:table/preview` | Non |
-| Valeurs uniques | `/data/:table/values/:column` | Non |
-| Export CSV | `/export/:table` | Non |
-| Info tables | `/tables`, `/tables/structure` | CLI `tables` uniquement |
+| Fonctionnalite              | BCE Belgium                    | SIRENE France                    |
+| --------------------------- | ------------------------------ | -------------------------------- |
+| Recherche par code activite | `/search/nace?code=`           | `/search/naf?code=`              |
+| Recherche par nom           | `/search/denomination?q=`      | `/search/denomination?q=`        |
+| Recherche par code postal   | `/search/zipcode?q=`           | `/search/codepostal?q=`          |
+| Recherche par commune       | Non                            | `/search/commune?q=`             |
+| Recherche par date creation | `/search/startdate?from=&to=`  | `/search/datecreation?from=&to=` |
+| Recherche par statut        | Non (via multi)                | `/search/etatadministratif?q=`   |
+| Multi-criteres              | `/search/multi`                | `/search/multi`                  |
+| Multi-mots (nom)            | Oui (AND logic)                | Oui (AND logic)                  |
+| Recherche generique         | `/search/:table/:column`       | Non                              |
+| Preview table               | `/data/:table/preview`         | Non                              |
+| Valeurs uniques             | `/data/:table/values/:column`  | Non                              |
+| Export CSV                  | `/export/:table`               | Non                              |
+| Info tables                 | `/tables`, `/tables/structure` | CLI `tables` uniquement          |
 
 ### Enrichissement
 
-| Donnee | BCE Belgium | SIRENE France |
-|--------|------------|---------------|
-| Nom entreprise | denomination (multilingue FR/NL) | denomination_unite_legale |
-| Adresse | address (REGO) | etablissement (siege) |
-| Email | contact (EMAIL) | Non disponible |
-| Telephone | contact (TEL) | Non disponible |
-| Site web | contact (WEB) | Non disponible |
-| Activites | activity (NACE, classification) | activite_principale |
-| Etablissements | establishment | etablissement (siege uniquement) |
-| Forme juridique | enterprise.juridicalform | categorie_juridique |
-| Effectifs | Non | tranche_effectifs |
-| Categorie | Non | categorie_entreprise (PME/ETI/GE) |
+| Donnee          | BCE Belgium                      | SIRENE France                     |
+| --------------- | -------------------------------- | --------------------------------- |
+| Nom entreprise  | denomination (multilingue FR/NL) | denomination_unite_legale         |
+| Adresse         | address (REGO)                   | etablissement (siege)             |
+| Email           | contact (EMAIL)                  | Non disponible                    |
+| Telephone       | contact (TEL)                    | Non disponible                    |
+| Site web        | contact (WEB)                    | Non disponible                    |
+| Activites       | activity (NACE, classification)  | activite_principale               |
+| Etablissements  | establishment                    | etablissement (siege uniquement)  |
+| Forme juridique | enterprise.juridicalform         | categorie_juridique               |
+| Effectifs       | Non                              | tranche_effectifs                 |
+| Categorie       | Non                              | categorie_entreprise (PME/ETI/GE) |
 
 ### Middleware
 
-| Middleware | BCE Belgium | SIRENE France |
-|-----------|------------|---------------|
-| ValidateTableName | Oui | Non |
-| ValidateColumnName | Oui | Non |
-| ValidateSearchQuery | Oui | Non |
-| ParseLimitParam (avec max) | Oui | Oui (max 10000) |
-| ParseOffsetParam | Oui | Non |
-| ParseFormatParam | Oui | Non |
-| ParseSortParam | Oui | Non |
-| ResponseMiddleware | Oui | Non |
-| CORS | Oui | Oui |
+| Middleware                 | BCE Belgium | SIRENE France   |
+| -------------------------- | ----------- | --------------- |
+| ValidateTableName          | Oui         | Non             |
+| ValidateColumnName         | Oui         | Non             |
+| ValidateSearchQuery        | Oui         | Non             |
+| ParseLimitParam (avec max) | Oui         | Oui (max 10000) |
+| ParseOffsetParam           | Oui         | Non             |
+| ParseFormatParam           | Oui         | Non             |
+| ParseSortParam             | Oui         | Non             |
+| ResponseMiddleware         | Oui         | Non             |
+| CORS                       | Oui         | Oui             |
 
 ### Recherche semantique
 
-| Feature | BCE Belgium | SIRENE France |
-|---------|------------|---------------|
-| ILIKE basique | Oui | Oui |
-| Multi-mots AND | Oui (buildMultiWordSearch) | Oui (denomination) |
-| Full-text search (tsvector) | Non | Non |
-| Trigrams (pg_trgm) | Non | Non |
-| Fuzzy search | Non | Non |
-| Scoring/ranking | Non | Non |
+| Feature                     | BCE Belgium                | SIRENE France      |
+| --------------------------- | -------------------------- | ------------------ |
+| ILIKE basique               | Oui                        | Oui                |
+| Multi-mots AND              | Oui (buildMultiWordSearch) | Oui (denomination) |
+| Full-text search (tsvector) | Non                        | Non                |
+| Trigrams (pg_trgm)          | Non                        | Non                |
+| Fuzzy search                | Non                        | Non                |
+| Scoring/ranking             | Non                        | Non                |
 
 **Ni BCE ni SIRENE n'implementent de recherche semantique avancee.**
 Les deux utilisent `ILIKE '%terme%'` comme base, avec du multi-mots AND pour les denominations.
@@ -273,6 +277,7 @@ Les deux utilisent `ILIKE '%terme%'` comme base, avec du multi-mots AND pour les
 ### Ameliorations recommandees
 
 1. **Index PostgreSQL** - Ajouter des index sur les colonnes de recherche apres import :
+
    ```sql
    CREATE INDEX idx_etab_naf ON etablissement(activite_principale_etablissement);
    CREATE INDEX idx_etab_cp ON etablissement(code_postal_etablissement);
@@ -316,15 +321,15 @@ cd sirene_france_backend && go run . tables
 
 ## 9. Corrections appliquees
 
-| Correction | Fichier | Impact |
-|-----------|---------|--------|
-| Fix imports `internal/config` -> `config` | `api/server.go` | Bloquant (ne compilait pas) |
-| `rows.Err()` apres boucles de lecture | 6 fichiers search + enrichment | Fiabilite |
-| Limite max 10 000 sur parametre `limit` | `company_handler.go` | Securite (DoS) |
-| Redis configurable via env vars | `company_service.go` | Deploiement |
-| Logging des erreurs de scan | `company_enrichment.go` | Debug |
-| Buffer channel 100k -> 10k | `csv/pipeline.go` | Memoire (RAM) |
-| Recherche multi-mots denomination | `company_search_denomination.go` | Fonctionnalite |
-| Ajout recherche par commune | `company_search_commune.go` | Fonctionnalite |
-| Ajout recherche par etat administratif | `company_search_etatadmin.go` | Fonctionnalite |
-| Multi-criteres: commune + etat | `company_search_multi.go` | Fonctionnalite |
+| Correction                                | Fichier                          | Impact                      |
+| ----------------------------------------- | -------------------------------- | --------------------------- |
+| Fix imports `internal/config` -> `config` | `api/server.go`                  | Bloquant (ne compilait pas) |
+| `rows.Err()` apres boucles de lecture     | 6 fichiers search + enrichment   | Fiabilite                   |
+| Limite max 10 000 sur parametre `limit`   | `company_handler.go`             | Securite (DoS)              |
+| Redis configurable via env vars           | `company_service.go`             | Deploiement                 |
+| Logging des erreurs de scan               | `company_enrichment.go`          | Debug                       |
+| Buffer channel 100k -> 10k                | `csv/pipeline.go`                | Memoire (RAM)               |
+| Recherche multi-mots denomination         | `company_search_denomination.go` | Fonctionnalite              |
+| Ajout recherche par commune               | `company_search_commune.go`      | Fonctionnalite              |
+| Ajout recherche par etat administratif    | `company_search_etatadmin.go`    | Fonctionnalite              |
+| Multi-criteres: commune + etat            | `company_search_multi.go`        | Fonctionnalite              |
