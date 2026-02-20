@@ -43,18 +43,13 @@ export function CompanyResultsTable({ companies }: CompanyResultsTableProps) {
                 {company.denomination || company.siren}
               </Link>
               {company.sigle && (
-                <span className="ml-2 text-sm text-muted-foreground">
-                  ({company.sigle})
-                </span>
+                <span className="ml-2 text-sm text-muted-foreground">({company.sigle})</span>
               )}
             </TableCell>
             <TableCell className="font-mono">{company.siren}</TableCell>
             <TableCell>
               {company.naf_code && (
-                <Link
-                  href={`/naf/${company.naf_code}`}
-                  className="text-sm hover:underline"
-                >
+                <Link href={`/naf/${company.naf_code}`} className="text-sm hover:underline">
                   {company.naf_code}
                 </Link>
               )}
