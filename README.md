@@ -145,6 +145,21 @@ GET /api/health
 | Belgium | [BCE Open Data](https://kbopub.economie.fgov.be/kbo-open-data) | 47M | 10 | Monthly |
 | France  | [INSEE SIRENE](https://www.data.gouv.fr/fr/datasets/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/) | 72M | 3 | Monthly |
 
+### France — Data Files
+
+Download from [data.gouv.fr](https://www.data.gouv.fr/fr/datasets/base-sirene-des-entreprises-et-de-leurs-etablissements-siren-siret/):
+
+| File | Size | Content |
+|------|------|---------|
+| `StockUniteLegale_utf8.zip` | ~2 GB | 29M legal entities (SIREN) |
+| `StockEtablissement_utf8.zip` | ~5 GB | 42M establishments (SIRET) |
+
+Updated on the 1st of each month (snapshot of the previous month's last day).
+
+> **Parquet format** (available since June 2025): data.gouv.fr now offers Parquet
+> as an alternative to ZIP/CSV with the same data structure. To be tested — could
+> improve import performance significantly.
+
 ## Code Quality
 
 ```bash
